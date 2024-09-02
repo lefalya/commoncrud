@@ -4,14 +4,25 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/go-redis/redismock/v9"
 	"github.com/google/uuid"
 	"github.com/lefalya/commonlogger"
-	"github.com/redis/go-redis"
+	loggerSchema "github.com/lefalya/commonlogger/schema"
+	"github.com/redis/go-redis/v9"
 	"github.com/zeebo/assert"
+)
+
+const (
+	INDIVIDUAL_SUBMISSION_KEY         = "submission:%s"
+	SORTED_SET_PARTICIPANT_SUBMISSION = "campaign:%s:submission:%s"
+)
+
+var (
+	logger = slog.New(slog.NewJSONHandler(os.Stderr, nil))
 )
 
 type Submission struct {
@@ -122,8 +133,8 @@ func TestPaginateAddItem(t *testing.T) {
 			dummyParticipantUUID,
 		)
 		assert.NotNil(t, errorSetSortedSet)
-		assert.Equal(t, FATAL_ERROR, errorSetSortedSet.Err)
-		assert.Equal(t, "testsortedset.set_sorted_set_fatal_error", errorSetSortedSet.Context)
+		assert.Equal(t, REDIS_FATAL_ERROR, errorSetSortedSet.Err)
+		assert.Equal(t, "testsortedset.set_sorted_set_REDIS_FATAL_ERROR", errorSetSortedSet.Context)
 	})
 
 	t.Run("fatal error on Expire", func(t *testing.T) {
@@ -157,8 +168,8 @@ func TestPaginateAddItem(t *testing.T) {
 			dummyParticipantUUID,
 		)
 		assert.NotNil(t, errorSetSortedSet)
-		assert.Equal(t, FATAL_ERROR, errorSetSortedSet.Err)
-		assert.Equal(t, "testsortedset.set_sorted_set_expire_fatal_error", errorSetSortedSet.Context)
+		assert.Equal(t, REDIS_FATAL_ERROR, errorSetSortedSet.Err)
+		assert.Equal(t, "testsortedset.set_sorted_set_expire_REDIS_FATAL_ERROR", errorSetSortedSet.Context)
 	})
 }
 
@@ -224,8 +235,8 @@ func TestDeleteFromSortedSet(t *testing.T) {
 		)
 
 		assert.NotNil(t, errorRemoveMemberFromSortedSet)
-		assert.Equal(t, FATAL_ERROR, errorRemoveMemberFromSortedSet.Err)
-		assert.Equal(t, "testdeletefromsortedset.delete_from_sorted_set_fatal_error", errorRemoveMemberFromSortedSet.Context)
+		assert.Equal(t, REDIS_FATAL_ERROR, errorRemoveMemberFromSortedSet.Err)
+		assert.Equal(t, "testdeletefromsortedset.delete_from_sorted_set_REDIS_FATAL_ERROR", errorRemoveMemberFromSortedSet.Context)
 	})
 }
 
@@ -276,8 +287,8 @@ func TestGetTotalItemSortedSet(t *testing.T) {
 		)
 
 		assert.NotNil(t, errorGetTotalItem)
-		assert.Equal(t, FATAL_ERROR, errorGetTotalItem.Err)
-		assert.Equal(t, "testgettotal.get_total_item_sorted_set_fatal_error", errorGetTotalItem.Context)
+		assert.Equal(t, REDIS_FATAL_ERROR, errorGetTotalItem.Err)
+		assert.Equal(t, "testgettotal.get_total_item_sorted_set_REDIS_FATAL_ERROR", errorGetTotalItem.Context)
 	})
 }
 

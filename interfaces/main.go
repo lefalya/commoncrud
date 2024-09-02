@@ -1,9 +1,10 @@
-package main
+package interfaces
 
 import (
-	loggerInterfaces "github.com/lefalya/commonlogger/interfaces"
-	loggerSchema "github.com/lefalya/commonlogger/schema"
+	"github.com/lefalya/commonlogger"
 )
+
+type Processor[T any] func(value *T, args ...string)
 
 type LinkedPagination[T any] interface {
 	AddItem(
@@ -11,22 +12,23 @@ type LinkedPagination[T any] interface {
 		score float64,
 		value *T,
 		contextPrefix string,
-		errorHandler *loggerInterfaces.LogHelper,
 		parameters ...interface{},
-	) *loggerSchema.CommonError
+	) *commonlogger.CommonError
+
 	RemoveItem(
 		keyFormat string,
 		member string,
 		value *T,
 		contextPrefix string,
-		errorHandler *loggerInterfaces.LogHelper,
 		parameters ...interface{},
-	) *loggerSchema.CommonError
+	) *commonlogger.CommonError
+
 	TotalItem(
 		keyFormat string,
 		contextPrefix string,
 		parameters ...interface{},
-	) *loggerSchema.CommonError
+	) *commonlogger.CommonError
+
 	Paginate(
 		keyFormat string,
 		individualKeyFormat string,
@@ -38,5 +40,21 @@ type LinkedPagination[T any] interface {
 		[]T,
 		string,
 		int64,
-		*loggerSchema.CommonError)
+		*commonlogger.CommonError)
+}
+
+type NumericPagination[T any] interface{}
+
+type MongoSeeder[T any] interface {
+	SeedLinkedPagination(
+		keyFormat string,
+		individualKeyFormat string,
+		subtraction int64,
+		lastMember string,
+		filter Processor[T],
+		parameters ...interface{},
+	) (
+		[]T,
+		*commonlogger.CommonError,
+	)
 }

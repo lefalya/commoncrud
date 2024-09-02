@@ -13,9 +13,10 @@ import (
 	"github.com/lefalya/commonpagination/interfaces"
 	commonRedisInterfaces "github.com/lefalya/commonredis/interfaces"
 	"github.com/redis/go-redis/v9"
-
-	loggerInterfaces "github.com/lefalya/commonlogger/interfaces"
-	loggerSchema "github.com/lefalya/commonlogger/schema"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -28,7 +29,10 @@ const (
 )
 
 var (
-	TOO_MUCH_RANDIDS = errors.New("10000; ")
+	REDIS_FATAL_ERROR   = errors.New("Redis fatal error!")
+	TOO_MUCH_REFERENCES = errors.New("Too much references!")
+	INVALID_HEX         = errors.New("Invalid hex: fail to convert hex to ObjectId")
+	REFERENCE_NOT_FOUND = errors.New("Reference not found!")
 )
 
 func joinParameters(parameters ...interface{}) string {
@@ -41,34 +45,34 @@ func joinParameters(parameters ...interface{}) string {
 	return strings.Join(stringSlice, ", ")
 }
 
-type LinkedPagination[T any] struct {
-	redisClient *redis.Client
-	logger      *slog.Logger
-	generic     commonRedisInterfaces.Generic[T]
+type LinkedPaginationType[T any] struct {
+	redisClient   *redis.Client
+	logger        *slog.Logger
+	generic       commonRedisInterfaces.Generic[T]
+	sortedSetKey  string
+	individualKey string
 }
 
-func NewLinkedPagination[T any](
+func LinkedPagination[T any](
 	logger *slog.Logger,
 	redisClient *redis.Client,
 	generic commonRedisInterfaces.Generic[T],
-) *LinkedPagination[T] {
+) *LinkedPaginationType[T] {
 
-	return &LinkedPagination[T]{
+	return &LinkedPaginationType[T]{
 		logger:      logger,
 		redisClient: redisClient,
 		generic:     generic,
 	}
 }
 
-func (cr *LinkedPagination[T]) AddItem(
+func (cr *LinkedPaginationType[T]) AddItem(
 	keyFormat string,
 	score float64,
 	member string,
-	value *T,
 	contextPrefix string,
-	errorHandler loggerInterfaces.LogHelper,
 	parameters ...interface{},
-) *loggerSchema.CommonError {
+) *commonlogger.CommonError {
 
 	finalKey := fmt.Sprintf(keyFormat, parameters...)
 
@@ -87,7 +91,7 @@ func (cr *LinkedPagination[T]) AddItem(
 
 		return errorHandler(
 			cr.logger,
-			FATAL_ERROR,
+			REDIS_FATAL_ERROR,
 			setSortedSet.Err().Error(),
 			contextPrefix+".set_sorted_set_fatal_error",
 			*value,
@@ -104,7 +108,7 @@ func (cr *LinkedPagination[T]) AddItem(
 
 		return errorHandler(
 			cr.logger,
-			FATAL_ERROR,
+			REDIS_FATAL_ERROR,
 			setExpire.Err().Error(),
 			contextPrefix+".set_sorted_set_expire_fatal_error",
 			*value,
@@ -114,14 +118,13 @@ func (cr *LinkedPagination[T]) AddItem(
 	return nil
 }
 
-func (cr *LinkedPagination[T]) RemoveItem(
+func (cr *LinkedPaginationType[T]) RemoveItem(
 	keyFormat string,
 	member string,
 	value *T,
 	contextPrefix string,
-	errorHandler loggerInterfaces.LogHelper,
 	parameters ...interface{},
-) *loggerSchema.CommonError {
+) *commonlogger.CommonError {
 
 	finalKey := fmt.Sprintf(keyFormat, parameters...)
 
@@ -135,7 +138,7 @@ func (cr *LinkedPagination[T]) RemoveItem(
 
 		return errorHandler(
 			cr.logger,
-			FATAL_ERROR,
+			REDIS_FATAL_ERROR,
 			removeFromSortedSet.Err().Error(),
 			contextPrefix+".delete_from_sorted_set_fatal_error",
 			*value,
@@ -145,11 +148,11 @@ func (cr *LinkedPagination[T]) RemoveItem(
 	return nil
 }
 
-func (cr *LinkedPagination[T]) TotalItem(
+func (cr *LinkedPaginationType[T]) TotalItem(
 	keyFormat string,
 	contextPrefix string,
 	parameters ...interface{},
-) *loggerSchema.CommonError {
+) *commonlogger.CommonError {
 
 	finalKey := fmt.Sprintf(keyFormat, parameters...)
 
@@ -162,7 +165,7 @@ func (cr *LinkedPagination[T]) TotalItem(
 
 		return commonlogger.LogError(
 			cr.logger,
-			FATAL_ERROR,
+			REDIS_FATAL_ERROR,
 			totalItemsOnSortedSet.Err().Error(),
 			contextPrefix+".get_total_item_sorted_set_fatal_error",
 			"keyFormat", keyFormat,
@@ -174,10 +177,10 @@ func (cr *LinkedPagination[T]) TotalItem(
 	return nil
 }
 
-func (cr *LinkedPagination[T]) Paginate(
+func (cr *LinkedPaginationType[T]) Paginate(
 	keyFormat string,
 	contextPrefix string,
-	lastMembers []string,
+	references []string,
 	individualKeyFormat string,
 	processor interfaces.Processor[T],
 	processorArgs []string,
@@ -186,7 +189,7 @@ func (cr *LinkedPagination[T]) Paginate(
 	[]T,
 	string,
 	int64,
-	*loggerSchema.CommonError) {
+	*commonlogger.CommonError) {
 
 	finalKey := fmt.Sprintf(keyFormat, parameters...)
 
@@ -195,7 +198,7 @@ func (cr *LinkedPagination[T]) Paginate(
 	var start int64
 	var stop int64
 
-	totalRandIds := len(lastMembers)
+	totalRandIds := len(references)
 
 	if totalRandIds > 0 {
 
@@ -203,24 +206,24 @@ func (cr *LinkedPagination[T]) Paginate(
 
 			commonError := commonlogger.LogError(
 				cr.logger,
-				TOO_MUCH_RANDIDS,
+				TOO_MUCH_REFERENCES,
 				"Too much randIds inserted",
 				contextPrefix+".MAX_LAST_MEMBERS_EXCEEDED",
 				"keyFormat", keyFormat,
 				"finalKey", finalKey,
-				"len(lastMembers)", strconv.Itoa(len(lastMembers)),
+				"len(lastMembers)", strconv.Itoa(len(references)),
 				"parameters", joinParameters(parameters),
 			)
 
 			return nil, validLastMembers, start, commonError
 		}
 
-		for i := len(lastMembers) - 1; i >= 0; i-- {
+		for i := len(references) - 1; i >= 0; i-- {
 
 			rank := cr.redisClient.ZRevRank(
 				context.TODO(),
 				finalKey,
-				lastMembers[i],
+				references[i],
 			)
 
 			if rank.Err() != nil {
@@ -233,19 +236,19 @@ func (cr *LinkedPagination[T]) Paginate(
 
 				commonError := commonlogger.LogError(
 					cr.logger,
-					FATAL_ERROR,
+					REDIS_FATAL_ERROR,
 					rank.Err().Error(),
 					contextPrefix+".ZREVRANK_FATAL_ERROR",
 					"keyFormat", keyFormat,
 					"finalKey", finalKey,
-					"len(lastMembers)", strconv.Itoa(len(lastMembers)),
+					"len(lastMembers)", strconv.Itoa(len(references)),
 					"parameters", joinParameters(parameters),
 				)
 
 				return nil, validLastMembers, start, commonError
 			}
 
-			validLastMembers = lastMembers[i]
+			validLastMembers = references[i]
 			start = rank.Val() + 1
 			break
 		}
@@ -264,7 +267,7 @@ func (cr *LinkedPagination[T]) Paginate(
 
 		commonError := commonlogger.LogError(
 			cr.logger,
-			FATAL_ERROR,
+			REDIS_FATAL_ERROR,
 			members.Err().Error(),
 			contextPrefix+".ZREVRANGE_FATAL_ERROR",
 			"keyFormat", keyFormat,
@@ -304,4 +307,112 @@ func (cr *LinkedPagination[T]) Paginate(
 	}
 
 	return returnValues, validLastMembers, start, nil
+}
+
+type MongoSeederType[T any] struct {
+	redisClient      *redis.Client
+	redisGeneric     commonRedisInterfaces.Generic[T]
+	mongoCollection  *mongo.Collection
+	logger           *slog.Logger
+	linkedPagination interfaces.LinkedPagination[T]
+}
+
+func MongoSeeder[T any](
+	logger *slog.Logger,
+	redisClient *redis.Client,
+	mongoCollection *mongo.Collection,
+	generic commonRedisInterfaces.Generic[T],
+	linkedPagination interfaces.LinkedPagination[T],
+) *MongoSeederType[T] {
+
+	return &MongoSeederType[T]{
+		logger:           logger,
+		redisClient:      redisClient,
+		mongoCollection:  mongoCollection,
+		linkedPagination: linkedPagination,
+	}
+}
+
+func (ms *MongoSeederType[T]) SeedLinkedPagination(
+	individualKeyFormat string,
+	subtraction int64,
+	referenceAsHex string,
+	lastMember string,
+	processors interfaces.Processor[T],
+	paginationFilter bson.A,
+	singularFilter bson.D,
+) ([]T, *commonlogger.CommonError) {
+
+	var cursor *mongo.Cursor
+	var filter bson.D
+	var manyT []T
+
+	findOptions := options.Find()
+	findOptions.SetSort(bson.D{{"_id", -1}})
+
+	if subtraction > 0 {
+
+		referenceAsObjectId, errorConvertHex := primitive.ObjectIDFromHex(referenceAsHex)
+
+		if errorConvertHex != nil {
+
+			return nil, commonlogger.LogError(
+				ms.logger,
+				INVALID_HEX,
+				errorConvertHex.Error(),
+				"individualKeyFormat", individualKeyFormat,
+				"subtraction", strconv.Itoa(int(subtraction)),
+				"referenceAsHex", referenceAsHex,
+			)
+		}
+
+		remainingItem := ITEM_PER_PAGE - subtraction
+		findOptions.SetLimit(int64(remainingItem))
+
+		filter = bson.D{
+			{Key: "$and",
+				Value: append(
+					paginationFilter,
+					bson.A{
+						bson.D{
+							{Key: "_id",
+								Value: bson.D{
+									{
+										Key:   "$lt",
+										Value: referenceAsObjectId,
+									},
+								},
+							},
+						},
+					}...,
+				),
+			},
+		}
+
+	} else {
+
+		findOptions.SetLimit(int64(ITEM_PER_PAGE))
+
+		if referenceAsHex != "" {
+
+			// lastItem, _ := finder(lastMember)
+
+			var referenceItem T
+			findReferenceError := ms.mongoCollection.FindOne(
+				context.TODO(),
+				singularFilter,
+			).Decode(referenceItem)
+
+			if findReferenceError != nil {
+
+				if findReferenceError == mongo.ErrNoDocuments {
+
+					return nil, REFERENCE_NOT_FOUND
+				}
+
+				return nil, findReferenceError
+			}
+
+		}
+	}
 }
