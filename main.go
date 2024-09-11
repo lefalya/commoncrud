@@ -18,6 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -686,103 +687,99 @@ func (mo *MongoType[T]) Delete(item T) *commonlogger.CommonError {
 	return nil
 }
 
-// func (mo *MongoType[T]) SeedLinked(
-// 	paginationKeyParameters []string,
-// 	lastItem T,
-// 	paginationFilter bson.A,
-// 	processor interfaces.MongoProcesor[T],
-// 	processorArgs ...interface{},
-// ) ([]T, *commonlogger.CommonError) {
-// 	errorArgs := []string{}
+func (mo *MongoType[T]) SeedLinked(
+	paginationKeyParameters []string,
+	lastItem T,
+	paginationFilter bson.A,
+	processor interfaces.MongoProcesor[T],
+	processorArgs ...interface{},
+) ([]T, *commonlogger.CommonError) {
+	errorArgs := []string{}
 
-// 	var cursor *mongo.Cursor
-// 	var filter bson.D
-// 	var result []T
+	var cursor *mongo.Cursor
+	var filter bson.D
+	var result []T
 
-// 	findOptions := options.Find()
-// 	findOptions.SetSort(bson.D{{"_id", -1}})
-// 	findOptions.SetLimit(mo.pagination.ItemPerPage())
+	findOptions := options.Find()
+	findOptions.SetSort(bson.D{{"_id", -1}})
+	findOptions.SetLimit(mo.pagination.ItemPerPage())
 
-// 	if lastItem != nil {
-// 		filter = bson.D{
-// 			{
-// 				Key: "$and",
-// 				Value: append(
-// 					paginationFilter,
-// 					bson.A{
-// 						bson.D{
-// 							{
-// 								Key: "_id",
-// 								Value: bson.D{
-// 									{
-// 										Key:   "$lt",
-// 										Value: lastItem.GetObjectId(),
-// 									},
-// 								},
-// 							},
-// 						},
-// 					}...,
-// 				),
-// 			},
-// 		}
-// 	} else {
-// 		filter = bson.D{
-// 			{Key: "$and",
-// 				Value: append(
-// 					paginationFilter,
-// 				),
-// 			},
-// 		}
-// 	}
+	if !reflect.ValueOf(lastItem).IsZero() {
+		filter = bson.D{
+			{
+				Key: "$and",
+				Value: append(
+					paginationFilter,
+					bson.A{
+						bson.D{
+							{
+								Key: "_id",
+								Value: bson.D{
+									{
+										Key:   "$lt",
+										Value: lastItem.GetObjectId(),
+									},
+								},
+							},
+						},
+					}...,
+				),
+			},
+		}
+	} else {
+		filter = bson.D{
+			{Key: "$and", Value: paginationFilter},
+		}
+	}
 
-// 	var errorFindItems error
+	var errorFindItems error
 
-// 	cursor, errorFindItems = mo.collection.Find(
-// 		context.TODO(),
-// 		filter,
-// 		findOptions,
-// 	)
+	cursor, errorFindItems = mo.collection.Find(
+		context.TODO(),
+		filter,
+		findOptions,
+	)
 
-// 	if errorFindItems != nil {
+	if errorFindItems != nil {
 
-// 		return nil, commonlogger.LogError(
-// 			mo.logger,
-// 			MONGO_FATAL_ERROR,
-// 			errorFindItems.Error(),
-// 			"seedlinkedpagination.find_mongodb_fatal_error",
-// 			errorArgs...,
-// 		)
-// 	}
+		return nil, commonlogger.LogError(
+			mo.logger,
+			MONGO_FATAL_ERROR,
+			errorFindItems.Error(),
+			"seedlinkedpagination.find_mongodb_fatal_error",
+			errorArgs...,
+		)
+	}
 
-// 	defer cursor.Close(context.TODO())
+	defer cursor.Close(context.TODO())
 
-// 	for cursor.Next(context.TODO()) {
+	for cursor.Next(context.TODO()) {
 
-// 		var item T
-// 		errorDecode := cursor.Decode(&item)
+		var item T
+		errorDecode := cursor.Decode(&item)
 
-// 		if errorDecode != nil {
+		if errorDecode != nil {
 
-// 			commonlogger.LogError(
-// 				mo.logger,
-// 				FAILED_DECODE,
-// 				errorDecode.Error(),
-// 				"seedlinkedpagination.failed_decode",
-// 				errorArgs...,
-// 			)
+			commonlogger.LogError(
+				mo.logger,
+				FAILED_DECODE,
+				errorDecode.Error(),
+				"seedlinkedpagination.failed_decode",
+				errorArgs...,
+			)
 
-// 			continue
-// 		}
+			continue
+		}
 
-// 		processor(
-// 			&item,
-// 			ms.redisClient,
-// 			ms.mongoCollection,
-// 			processorArgs...,
-// 		)
+		processor(
+			&item,
+			processorArgs...,
+		)
 
-// 		ms.linkedPagination.AddItem()
-// 	}
+		mo.pagination.AddItem(paginationKeyParameters, &item)
 
-// 	return nil
-// }
+		result = append(result, item)
+	}
+
+	return result, nil
+}

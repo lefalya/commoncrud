@@ -64,4 +64,4 @@ type Mongo[T Item] interface {
 		processorArgs ...interface{}) ([]T, *commonlogger.CommonError)
 }
 
-type MongoProcesor[T Item] func(item *T, redisCLient *redis.Client, args ...interface{})
+type MongoProcesor[T Item] func(item *T, args ...interface{})
