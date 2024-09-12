@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-redis/redismock/v9"
 	"github.com/google/uuid"
+	"github.com/lefalya/commonpagination/interfaces"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,6 +23,20 @@ type Student struct {
 	*MongoItem `bson:",inline"`
 	FirstName  string `bson:"firstname"`
 	LastName   string `bson:"lastname"`
+}
+
+func TestInjectItemCache(t *testing.T) {
+	type Injected[T interfaces.Item] struct {
+		itemCache interfaces.ItemCache[T]
+	}
+
+	itemCache := ItemCache[Student]("", nil, nil)
+
+	injected := Injected[Student]{
+		itemCache: itemCache,
+	}
+
+	assert.NotNil(t, injected)
 }
 
 func TestGet(t *testing.T) {

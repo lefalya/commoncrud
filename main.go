@@ -34,20 +34,21 @@ var (
 	// Go's reference time, which is Mon Jan 2 15:04:05 MST 2006
 	FORMATTED_TIME = "2006-01-02T15:04:05.000000000Z"
 	// Redis errors
-	REDIS_FATAL_ERROR  = errors.New("(commoncrud) Redis fatal error")
-	KEY_NOT_FOUND      = errors.New("(commoncrud) Key not found")
-	ERROR_PARSE_JSON   = errors.New("(commoncrud) parse json fatal error!")
-	ERROR_MARSHAL_JSON = errors.New("(commoncrud) error marshal json!")
+	REDIS_FATAL_ERROR  = errors.New("(commonpagination) Redis fatal error")
+	KEY_NOT_FOUND      = errors.New("(commonpagination) Key not found")
+	ERROR_PARSE_JSON   = errors.New("(commonpagination) parse json fatal error!")
+	ERROR_MARSHAL_JSON = errors.New("(commonpagination) error marshal json!")
 	// Pagination errors
-	TOO_MUCH_REFERENCES = errors.New("(commoncrud) Too much references")
-	NO_VALID_REFERENCES = errors.New("(commoncrud) No valid references")
+	TOO_MUCH_REFERENCES     = errors.New("(commonpagination) Too much references")
+	NO_VALID_REFERENCES     = errors.New("(commonpagination) No valid references")
+	LASTITEM_MUST_MONGOITEM = errors.New("(commonpagination) Last item must be in interfaces.MongoItem")
 	// MongoDB errors
-	REFERENCE_NOT_FOUND = errors.New("(commoncrud) Reference not found")
-	DOCUMENT_NOT_FOUND  = errors.New("(commoncrud) Document not found")
-	MONGO_FATAL_ERROR   = errors.New("(commoncrud) MongoDB fatal error")
-	DUPLICATE_RANDID    = errors.New("(commoncrud) Duplicate RandID")
-	NO_OBJECTID_PRESENT = errors.New("(commoncrud) No objectId presents")
-	FAILED_DECODE       = errors.New("(commoncrud) failed decode")
+	REFERENCE_NOT_FOUND = errors.New("(commonpagination) Reference not found")
+	DOCUMENT_NOT_FOUND  = errors.New("(commonpagination) Document not found")
+	MONGO_FATAL_ERROR   = errors.New("(commonpagination) MongoDB fatal error")
+	DUPLICATE_RANDID    = errors.New("(commonpagination) Duplicate RandID")
+	NO_OBJECTID_PRESENT = errors.New("(commonpagination) No objectId presents")
+	FAILED_DECODE       = errors.New("(commonpagination) failed decode")
 	INVALID_HEX         = errors.New("(commonpagination) Invalid hex: fail to convert hex to ObjectId")
 )
 
@@ -303,16 +304,15 @@ func (cr *ItemCacheType[T]) Delete(item T) *commonlogger.CommonError {
 type PaginationType[T interfaces.Item] struct {
 	pagKeyFormat  string
 	itemKeyFormat string
-	itemPerPage   int64
 	logger        *slog.Logger
 	redisClient   *redis.Client
+	mongo         interfaces.Mongo[T]
 	itemCache     interfaces.ItemCache[T]
 }
 
 func Pagination[T interfaces.Item](
 	pagKeyFormat string,
 	itemKeyFormat string,
-	itemPerPage int64,
 	logger *slog.Logger,
 	redisClient *redis.Client,
 ) *PaginationType[T] {
@@ -325,15 +325,15 @@ func Pagination[T interfaces.Item](
 	return &PaginationType[T]{
 		pagKeyFormat:  pagKeyFormat,
 		itemKeyFormat: itemKeyFormat,
-		itemPerPage:   itemPerPage,
 		logger:        logger,
 		redisClient:   redisClient,
 		itemCache:     itemCache,
 	}
 }
 
-func (pg *PaginationType[T]) ItemPerPage() int64 {
-	return pg.itemPerPage
+func (pg *PaginationType[T]) WithMongo(mongo interfaces.Mongo[T], paginationFilter bson.A) {
+	pg.mongo = mongo
+	pg.mongo.SetPaginationFilter(paginationFilter)
 }
 
 func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *commonlogger.CommonError {
@@ -343,6 +343,8 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *commonlogge
 		"score", fmt.Sprintf("%f", float64(item.GetCreatedAt().Unix())),
 		"member", item.GetRandId(),
 	}
+
+	// add Set item here.
 
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
@@ -431,6 +433,7 @@ func (pg *PaginationType[T]) TotalItem(pagKeyParams []string, item T) *commonlog
 func (pg *PaginationType[T]) FetchLinked(
 	pagKeyParams []string,
 	references []string,
+	itemPerPage int64,
 	processor interfaces.PaginationProcessor[T],
 	processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
 	var items []T
@@ -485,7 +488,7 @@ func (pg *PaginationType[T]) FetchLinked(
 		}
 	}
 
-	stop = start + pg.itemPerPage - 1
+	stop = start + itemPerPage - 1
 
 	members := pg.redisClient.ZRevRange(context.TODO(), key, start, stop)
 	if members.Err() != nil {
@@ -523,18 +526,133 @@ func (pg *PaginationType[T]) FetchLinked(
 				continue
 			}
 
-			processor(item, items, pg.redisClient, processorArgs...)
+			processor(item, &items, processorArgs...)
 		}
 	}
 
 	return items, nil
 }
 
+func (pg *PaginationType[T]) SeedPartial(
+	paginationKeyParameters []string,
+	lastItem T,
+	itemPerPage int64,
+	processor interfaces.PaginationProcessor[T],
+	processorArgs ...interface{},
+) ([]T, *commonlogger.CommonError) {
+	errorArgs := []string{}
+
+	var result []T
+	var filter bson.D
+
+	if !reflect.ValueOf(lastItem).IsZero() {
+		// selection based on companion DB type
+		if pg.mongo != nil {
+			inMongoItem, ok := any(lastItem).(interfaces.MongoItem)
+			if !ok {
+				// return lastItem must be in MongoItem
+				return nil, commonlogger.LogError(
+					pg.logger,
+					LASTITEM_MUST_MONGOITEM,
+					"invalid item, not in MongoItem type",
+					"seedpartial.lastitem_must_mongoitem",
+					errorArgs...,
+				)
+			}
+
+			filter = bson.D{
+				{
+					Key: "$and",
+					Value: append(
+						pg.mongo.GetPaginationFilter(),
+						bson.A{
+							bson.D{
+								{
+									Key: "_id",
+									Value: bson.D{
+										{
+											Key:   "$lt",
+											Value: inMongoItem.GetObjectId(),
+										},
+									},
+								},
+							},
+						}...,
+					),
+				},
+			}
+		}
+	} else {
+		if pg.mongo != nil {
+			filter = bson.D{
+				{Key: "$and", Value: pg.mongo.GetPaginationFilter()},
+			}
+		}
+	}
+
+	if pg.mongo != nil {
+		findOptions := options.Find()
+		findOptions.SetSort(bson.D{{"_id", -1}})
+		findOptions.SetLimit(itemPerPage)
+
+		cursor, errorFindItems := pg.mongo.FindMany(
+			filter,
+			findOptions,
+		)
+
+		if errorFindItems != nil {
+			return nil, errorFindItems
+		}
+		defer cursor.Close(context.TODO())
+
+		for cursor.Next(context.TODO()) {
+			var item T
+
+			errorDecode := cursor.Decode(&item)
+			if errorDecode != nil {
+				commonlogger.LogError(
+					pg.logger,
+					FAILED_DECODE,
+					errorDecode.Error(),
+					"seedlinkedpagination.failed_decode",
+					errorArgs...,
+				)
+
+				continue
+			}
+
+			parsedTime, errorParse := time.Parse(FORMATTED_TIME, item.GetCreatedAtString())
+			if errorParse == nil {
+				item.SetCreatedAt(parsedTime)
+			}
+
+			parsedTime, errorParse = time.Parse(FORMATTED_TIME, item.GetUpdatedAtString())
+			if errorParse == nil {
+				item.SetUpdatedAt(parsedTime)
+			}
+
+			processor(
+				item,
+				&result,
+				processorArgs...,
+			)
+
+			pg.AddItem(paginationKeyParameters, item)
+
+			result = append(result, item)
+		}
+	} else {
+		// please define database to use.
+	}
+
+	return result, nil
+}
+
 type MongoType[T interfaces.MongoItem] struct {
-	logger     *slog.Logger
-	collection *mongo.Collection
-	itemCache  interfaces.ItemCache[T]
-	pagination interfaces.Pagination[T]
+	logger           *slog.Logger
+	collection       *mongo.Collection
+	itemCache        interfaces.ItemCache[T]
+	paginationFilter bson.A
 }
 
 func Mongo[T interfaces.MongoItem](logger *slog.Logger, collection *mongo.Collection) *MongoType[T] {
@@ -542,11 +660,6 @@ func Mongo[T interfaces.MongoItem](logger *slog.Logger, collection *mongo.Collec
 		logger:     logger,
 		collection: collection,
 	}
-}
-
-func (mo *MongoType[T]) WithPagination(itemCache interfaces.ItemCache[T], pagination interfaces.Pagination[T]) {
-	mo.itemCache = itemCache
-	mo.pagination = pagination
 }
 
 func (mo *MongoType[T]) Create(item T) *commonlogger.CommonError {
@@ -602,20 +715,18 @@ func initializePointers(item interface{}) {
 	}
 }
 
-func (mo *MongoType[T]) Find(randId string) (T, *commonlogger.CommonError) {
+func (mo *MongoType[T]) FindOne(randId string) (T, *commonlogger.CommonError) {
 	var nilItem T
-
+	var item T
 	filter := bson.D{{"randId", randId}}
 
-	var item T
 	initializePointers(&item)
+
 	findOneRes := mo.collection.FindOne(
 		context.TODO(),
 		filter,
 	)
-
 	findError := findOneRes.Decode(&item)
-
 	if findError != nil {
 		if findError == mongo.ErrNoDocuments {
 			return nilItem, commonlogger.LogError(
@@ -636,13 +747,41 @@ func (mo *MongoType[T]) Find(randId string) (T, *commonlogger.CommonError) {
 		)
 	}
 
+	parsedTime, errorParse := time.Parse(FORMATTED_TIME, item.GetCreatedAtString())
+	if errorParse == nil {
+		item.SetCreatedAt(parsedTime)
+	}
+
+	parsedTime, errorParse = time.Parse(FORMATTED_TIME, item.GetUpdatedAtString())
+	if errorParse == nil {
+		item.SetUpdatedAt(parsedTime)
+	}
+
 	return item, nil
+}
+
+func (mo *MongoType[T]) FindMany(filter bson.D, findOptions *options.FindOptions) (*mongo.Cursor, *commonlogger.CommonError) {
+
+	cursor, errorFindItems := mo.collection.Find(
+		context.TODO(),
+		filter,
+		findOptions,
+	)
+
+	if errorFindItems != nil {
+		return nil, commonlogger.LogError(
+			mo.logger,
+			MONGO_FATAL_ERROR,
+			errorFindItems.Error(),
+			"findmany.find_mongodb_fatal_error",
+		)
+	}
+
+	return cursor, nil
 }
 
 func (mo *MongoType[T]) Update(item T) *commonlogger.CommonError {
 	filter := bson.D{{"uuid", item.GetUUID()}}
-
-	// updateList, _ := structToBSON(item)
 
 	_, errorUpdate := mo.collection.UpdateOne(
 		context.TODO(),
@@ -687,99 +826,10 @@ func (mo *MongoType[T]) Delete(item T) *commonlogger.CommonError {
 	return nil
 }
 
-func (mo *MongoType[T]) SeedLinked(
-	paginationKeyParameters []string,
-	lastItem T,
-	paginationFilter bson.A,
-	processor interfaces.MongoProcesor[T],
-	processorArgs ...interface{},
-) ([]T, *commonlogger.CommonError) {
-	errorArgs := []string{}
+func (mo *MongoType[T]) SetPaginationFilter(filter bson.A) {
+	mo.paginationFilter = filter
+}
 
-	var cursor *mongo.Cursor
-	var filter bson.D
-	var result []T
-
-	findOptions := options.Find()
-	findOptions.SetSort(bson.D{{"_id", -1}})
-	findOptions.SetLimit(mo.pagination.ItemPerPage())
-
-	if !reflect.ValueOf(lastItem).IsZero() {
-		filter = bson.D{
-			{
-				Key: "$and",
-				Value: append(
-					paginationFilter,
-					bson.A{
-						bson.D{
-							{
-								Key: "_id",
-								Value: bson.D{
-									{
-										Key:   "$lt",
-										Value: lastItem.GetObjectId(),
-									},
-								},
-							},
-						},
-					}...,
-				),
-			},
-		}
-	} else {
-		filter = bson.D{
-			{Key: "$and", Value: paginationFilter},
-		}
-	}
-
-	var errorFindItems error
-
-	cursor, errorFindItems = mo.collection.Find(
-		context.TODO(),
-		filter,
-		findOptions,
-	)
-
-	if errorFindItems != nil {
-
-		return nil, commonlogger.LogError(
-			mo.logger,
-			MONGO_FATAL_ERROR,
-			errorFindItems.Error(),
-			"seedlinkedpagination.find_mongodb_fatal_error",
-			errorArgs...,
-		)
-	}
-
-	defer cursor.Close(context.TODO())
-
-	for cursor.Next(context.TODO()) {
-
-		var item T
-		errorDecode := cursor.Decode(&item)
-
-		if errorDecode != nil {
-
-			commonlogger.LogError(
-				mo.logger,
-				FAILED_DECODE,
-				errorDecode.Error(),
-				"seedlinkedpagination.failed_decode",
-				errorArgs...,
-			)
-
-			continue
-		}
-
-		processor(
-			&item,
-			processorArgs...,
-		)
-
-		mo.pagination.AddItem(paginationKeyParameters, &item)
-
-		result = append(result, item)
-	}
-
-	return result, nil
+func (mo *MongoType[T]) GetPaginationFilter() bson.A {
+	return mo.paginationFilter
 }
