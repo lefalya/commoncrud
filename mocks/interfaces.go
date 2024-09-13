@@ -401,6 +401,207 @@ func (mr *MockMongoItemMockRecorder) SetUpdatedAtString(timeString interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpdatedAtString", reflect.TypeOf((*MockMongoItem)(nil).SetUpdatedAtString), timeString)
 }
 
+// MockPagination is a mock of Pagination interface.
+type MockPagination[T interfaces.Item] struct {
+	ctrl     *gomock.Controller
+	recorder *MockPaginationMockRecorder[T]
+}
+
+// MockPaginationMockRecorder is the mock recorder for MockPagination.
+type MockPaginationMockRecorder[T interfaces.Item] struct {
+	mock *MockPagination[T]
+}
+
+// NewMockPagination creates a new mock instance.
+func NewMockPagination[T interfaces.Item](ctrl *gomock.Controller) *MockPagination[T] {
+	mock := &MockPagination[T]{ctrl: ctrl}
+	mock.recorder = &MockPaginationMockRecorder[T]{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockPagination[T]) EXPECT() *MockPaginationMockRecorder[T] {
+	return m.recorder
+}
+
+// AddItem mocks base method.
+func (m *MockPagination[T]) AddItem(pagKeyParams []string, item T) *commonlogger.CommonError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddItem", pagKeyParams, item)
+	ret0, _ := ret[0].(*commonlogger.CommonError)
+	return ret0
+}
+
+// AddItem indicates an expected call of AddItem.
+func (mr *MockPaginationMockRecorder[T]) AddItem(pagKeyParams, item interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddItem", reflect.TypeOf((*MockPagination[T])(nil).AddItem), pagKeyParams, item)
+}
+
+// FetchAll mocks base method.
+func (m *MockPagination[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{pagKeyParams, processor}
+	for _, a := range processorArgs {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "FetchAll", varargs...)
+	ret0, _ := ret[0].([]T)
+	ret1, _ := ret[1].(*commonlogger.CommonError)
+	return ret0, ret1
+}
+
+// FetchAll indicates an expected call of FetchAll.
+func (mr *MockPaginationMockRecorder[T]) FetchAll(pagKeyParams, processor interface{}, processorArgs ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{pagKeyParams, processor}, processorArgs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchAll", reflect.TypeOf((*MockPagination[T])(nil).FetchAll), varargs...)
+}
+
+// FetchLinked mocks base method.
+func (m *MockPagination[T]) FetchLinked(pagKeyParams, references []string, itemPerPage int64, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{pagKeyParams, references, itemPerPage, processor}
+	for _, a := range processorArgs {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "FetchLinked", varargs...)
+	ret0, _ := ret[0].([]T)
+	ret1, _ := ret[1].(*commonlogger.CommonError)
+	return ret0, ret1
+}
+
+// FetchLinked indicates an expected call of FetchLinked.
+func (mr *MockPaginationMockRecorder[T]) FetchLinked(pagKeyParams, references, itemPerPage, processor interface{}, processorArgs ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{pagKeyParams, references, itemPerPage, processor}, processorArgs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchLinked", reflect.TypeOf((*MockPagination[T])(nil).FetchLinked), varargs...)
+}
+
+// FetchOne mocks base method.
+func (m *MockPagination[T]) FetchOne(randId string) (*T, *commonlogger.CommonError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FetchOne", randId)
+	ret0, _ := ret[0].(*T)
+	ret1, _ := ret[1].(*commonlogger.CommonError)
+	return ret0, ret1
+}
+
+// FetchOne indicates an expected call of FetchOne.
+func (mr *MockPaginationMockRecorder[T]) FetchOne(randId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchOne", reflect.TypeOf((*MockPagination[T])(nil).FetchOne), randId)
+}
+
+// RemoveItem mocks base method.
+func (m *MockPagination[T]) RemoveItem(pagKeyParams []string, item T) *commonlogger.CommonError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveItem", pagKeyParams, item)
+	ret0, _ := ret[0].(*commonlogger.CommonError)
+	return ret0
+}
+
+// RemoveItem indicates an expected call of RemoveItem.
+func (mr *MockPaginationMockRecorder[T]) RemoveItem(pagKeyParams, item interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveItem", reflect.TypeOf((*MockPagination[T])(nil).RemoveItem), pagKeyParams, item)
+}
+
+// SeedAll mocks base method.
+func (m *MockPagination[T]) SeedAll(paginationKeyParameters []string, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{paginationKeyParameters, processor}
+	for _, a := range processorArgs {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SeedAll", varargs...)
+	ret0, _ := ret[0].([]T)
+	ret1, _ := ret[1].(*commonlogger.CommonError)
+	return ret0, ret1
+}
+
+// SeedAll indicates an expected call of SeedAll.
+func (mr *MockPaginationMockRecorder[T]) SeedAll(paginationKeyParameters, processor interface{}, processorArgs ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{paginationKeyParameters, processor}, processorArgs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedAll", reflect.TypeOf((*MockPagination[T])(nil).SeedAll), varargs...)
+}
+
+// SeedOne mocks base method.
+func (m *MockPagination[T]) SeedOne(randId string) (*T, *commonlogger.CommonError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SeedOne", randId)
+	ret0, _ := ret[0].(*T)
+	ret1, _ := ret[1].(*commonlogger.CommonError)
+	return ret0, ret1
+}
+
+// SeedOne indicates an expected call of SeedOne.
+func (mr *MockPaginationMockRecorder[T]) SeedOne(randId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedOne", reflect.TypeOf((*MockPagination[T])(nil).SeedOne), randId)
+}
+
+// SeedPartial mocks base method.
+func (m *MockPagination[T]) SeedPartial(paginationKeyParameters []string, lastItem T, itemPerPage int64, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{paginationKeyParameters, lastItem, itemPerPage, processor}
+	for _, a := range processorArgs {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SeedPartial", varargs...)
+	ret0, _ := ret[0].([]T)
+	ret1, _ := ret[1].(*commonlogger.CommonError)
+	return ret0, ret1
+}
+
+// SeedPartial indicates an expected call of SeedPartial.
+func (mr *MockPaginationMockRecorder[T]) SeedPartial(paginationKeyParameters, lastItem, itemPerPage, processor interface{}, processorArgs ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{paginationKeyParameters, lastItem, itemPerPage, processor}, processorArgs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedPartial", reflect.TypeOf((*MockPagination[T])(nil).SeedPartial), varargs...)
+}
+
+// TotalItemOnCache mocks base method.
+func (m *MockPagination[T]) TotalItemOnCache(pagKeyParams []string) *commonlogger.CommonError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TotalItemOnCache", pagKeyParams)
+	ret0, _ := ret[0].(*commonlogger.CommonError)
+	return ret0
+}
+
+// TotalItemOnCache indicates an expected call of TotalItemOnCache.
+func (mr *MockPaginationMockRecorder[T]) TotalItemOnCache(pagKeyParams interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TotalItemOnCache", reflect.TypeOf((*MockPagination[T])(nil).TotalItemOnCache), pagKeyParams)
+}
+
+// UpdateItem mocks base method.
+func (m *MockPagination[T]) UpdateItem(item T) *commonlogger.CommonError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateItem", item)
+	ret0, _ := ret[0].(*commonlogger.CommonError)
+	return ret0
+}
+
+// UpdateItem indicates an expected call of UpdateItem.
+func (mr *MockPaginationMockRecorder[T]) UpdateItem(item interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateItem", reflect.TypeOf((*MockPagination[T])(nil).UpdateItem), item)
+}
+
+// WithMongo mocks base method.
+func (m *MockPagination[T]) WithMongo(mongo interfaces.Mongo[T], paginationFilter bson.A) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "WithMongo", mongo, paginationFilter)
+}
+
+// WithMongo indicates an expected call of WithMongo.
+func (mr *MockPaginationMockRecorder[T]) WithMongo(mongo, paginationFilter interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithMongo", reflect.TypeOf((*MockPagination[T])(nil).WithMongo), mongo, paginationFilter)
+}
+
 // MockItemCache is a mock of ItemCache interface.
 type MockItemCache[T interfaces.Item] struct {
 	ctrl     *gomock.Controller
@@ -465,186 +666,6 @@ func (m *MockItemCache[T]) Set(item T) *commonlogger.CommonError {
 func (mr *MockItemCacheMockRecorder[T]) Set(item interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockItemCache[T])(nil).Set), item)
-}
-
-// MockPagination is a mock of Pagination interface.
-type MockPagination[T interfaces.Item] struct {
-	ctrl     *gomock.Controller
-	recorder *MockPaginationMockRecorder[T]
-}
-
-// MockPaginationMockRecorder is the mock recorder for MockPagination.
-type MockPaginationMockRecorder[T interfaces.Item] struct {
-	mock *MockPagination[T]
-}
-
-// NewMockPagination creates a new mock instance.
-func NewMockPagination[T interfaces.Item](ctrl *gomock.Controller) *MockPagination[T] {
-	mock := &MockPagination[T]{ctrl: ctrl}
-	mock.recorder = &MockPaginationMockRecorder[T]{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockPagination[T]) EXPECT() *MockPaginationMockRecorder[T] {
-	return m.recorder
-}
-
-// AddItem mocks base method.
-func (m *MockPagination[T]) AddItem(pagKeyParams []string, item *T) *commonlogger.CommonError {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddItem", pagKeyParams, item)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
-	return ret0
-}
-
-// AddItem indicates an expected call of AddItem.
-func (mr *MockPaginationMockRecorder[T]) AddItem(pagKeyParams, item interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddItem", reflect.TypeOf((*MockPagination[T])(nil).AddItem), pagKeyParams, item)
-}
-
-// FetchAll mocks base method.
-func (m *MockPagination[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{pagKeyParams, processor}
-	for _, a := range processorArgs {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "FetchAll", varargs...)
-	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
-	return ret0, ret1
-}
-
-// FetchAll indicates an expected call of FetchAll.
-func (mr *MockPaginationMockRecorder[T]) FetchAll(pagKeyParams, processor interface{}, processorArgs ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{pagKeyParams, processor}, processorArgs...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchAll", reflect.TypeOf((*MockPagination[T])(nil).FetchAll), varargs...)
-}
-
-// FetchLinked mocks base method.
-func (m *MockPagination[T]) FetchLinked(pagKeyParams, references []string, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{pagKeyParams, references, processor}
-	for _, a := range processorArgs {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "FetchLinked", varargs...)
-	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
-	return ret0, ret1
-}
-
-// FetchLinked indicates an expected call of FetchLinked.
-func (mr *MockPaginationMockRecorder[T]) FetchLinked(pagKeyParams, references, processor interface{}, processorArgs ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{pagKeyParams, references, processor}, processorArgs...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchLinked", reflect.TypeOf((*MockPagination[T])(nil).FetchLinked), varargs...)
-}
-
-// ItemPerPage mocks base method.
-func (m *MockPagination[T]) ItemPerPage() int64 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ItemPerPage")
-	ret0, _ := ret[0].(int64)
-	return ret0
-}
-
-// ItemPerPage indicates an expected call of ItemPerPage.
-func (mr *MockPaginationMockRecorder[T]) ItemPerPage() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ItemPerPage", reflect.TypeOf((*MockPagination[T])(nil).ItemPerPage))
-}
-
-// RemoveItem mocks base method.
-func (m *MockPagination[T]) RemoveItem(pagKeyParams []string, item *T) *commonlogger.CommonError {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveItem", pagKeyParams, item)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
-	return ret0
-}
-
-// RemoveItem indicates an expected call of RemoveItem.
-func (mr *MockPaginationMockRecorder[T]) RemoveItem(pagKeyParams, item interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveItem", reflect.TypeOf((*MockPagination[T])(nil).RemoveItem), pagKeyParams, item)
-}
-
-// SeedAll mocks base method.
-func (m *MockPagination[T]) SeedAll() ([]T, *commonlogger.CommonError) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SeedAll")
-	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
-	return ret0, ret1
-}
-
-// SeedAll indicates an expected call of SeedAll.
-func (mr *MockPaginationMockRecorder[T]) SeedAll() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedAll", reflect.TypeOf((*MockPagination[T])(nil).SeedAll))
-}
-
-// SeedPartial mocks base method.
-func (m *MockPagination[T]) SeedPartial(paginationKeyParameters []string, lastItem T, paginationFilter bson.A, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{paginationKeyParameters, lastItem, paginationFilter, processor}
-	for _, a := range processorArgs {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "SeedPartial", varargs...)
-	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
-	return ret0, ret1
-}
-
-// SeedPartial indicates an expected call of SeedPartial.
-func (mr *MockPaginationMockRecorder[T]) SeedPartial(paginationKeyParameters, lastItem, paginationFilter, processor interface{}, processorArgs ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{paginationKeyParameters, lastItem, paginationFilter, processor}, processorArgs...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedPartial", reflect.TypeOf((*MockPagination[T])(nil).SeedPartial), varargs...)
-}
-
-// TotalItem mocks base method.
-func (m *MockPagination[T]) TotalItem(keyFormat string, keyParameters []string) *commonlogger.CommonError {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TotalItem", keyFormat, keyParameters)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
-	return ret0
-}
-
-// TotalItem indicates an expected call of TotalItem.
-func (mr *MockPaginationMockRecorder[T]) TotalItem(keyFormat, keyParameters interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TotalItem", reflect.TypeOf((*MockPagination[T])(nil).TotalItem), keyFormat, keyParameters)
-}
-
-// UpdateItem mocks base method.
-func (m *MockPagination[T]) UpdateItem(item *T) *commonlogger.CommonError {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateItem", item)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
-	return ret0
-}
-
-// UpdateItem indicates an expected call of UpdateItem.
-func (mr *MockPaginationMockRecorder[T]) UpdateItem(item interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateItem", reflect.TypeOf((*MockPagination[T])(nil).UpdateItem), item)
-}
-
-// WithMongo mocks base method.
-func (m *MockPagination[T]) WithMongo(mongo interfaces.Mongo[T], paginationFilter bson.A) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "WithMongo", mongo, paginationFilter)
-}
-
-// WithMongo indicates an expected call of WithMongo.
-func (mr *MockPaginationMockRecorder[T]) WithMongo(mongo, paginationFilter interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithMongo", reflect.TypeOf((*MockPagination[T])(nil).WithMongo), mongo, paginationFilter)
 }
 
 // MockMongo is a mock of Mongo interface.

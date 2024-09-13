@@ -3,8 +3,6 @@ package commonpagination
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -12,10 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/lefalya/commonpagination/interfaces"
 	"github.com/stretchr/testify/assert"
-)
-
-var (
-	logger = slog.New(slog.NewJSONHandler(os.Stderr, nil))
 )
 
 type Student struct {

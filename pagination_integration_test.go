@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-func ConnectMongo() *mongo.Collection {
+func connectMongo() *mongo.Collection {
 	URI := os.Getenv("MONGO_HOST")
 	database := os.Getenv("MONGO_DATABASE")
 	collection := os.Getenv("MONGO_COLLECTION")
@@ -50,4 +51,37 @@ func connectRedis() redis.UniversalClient {
 	return client
 }
 
-func TestCreateMongoDB(t *testing.T) {}
+func TestIntegrationAddItem(t *testing.T) {
+	dummyCar := Car{
+		Brand:    "Volkswagen",
+		Category: "SUV",
+		Seating: []Seater{
+			{
+				Material:  "Leather",
+				Occupancy: 2,
+			},
+			{
+				Material:  "Leather",
+				Occupancy: 3,
+			},
+			{
+				Material:  "Leather",
+				Occupancy: 2,
+			},
+		},
+	}
+
+	dummyCar = NewMongoItem(dummyCar)
+	assert.NotNil(t, dummyCar)
+
+	mongo := Mongo[Car](logger, connectMongo())
+
+	pagination := Pagination[Car](
+		paginationKeyFormat,
+		itemKeyFormat,
+		logger,
+		connectRedis(),
+	)
+	pagination.WithMongo(mongo, paginationFilter)
+
+}
