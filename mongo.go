@@ -27,6 +27,12 @@ func Mongo[T interfaces.MongoItem](logger *slog.Logger, collection *mongo.Collec
 
 func (mo *MongoType[T]) Create(item T) *commonlogger.CommonError {
 
+	createdAtStr := item.GetCreatedAt().Format(FORMATTED_TIME)
+	updatedAtStr := item.GetUpdatedAt().Format(FORMATTED_TIME)
+
+	item.SetCreatedAtString(createdAtStr)
+	item.SetUpdatedAtString(updatedAtStr)
+
 	_, errorCreate := mo.collection.InsertOne(
 		context.TODO(),
 		item,
@@ -66,7 +72,7 @@ func (mo *MongoType[T]) Create(item T) *commonlogger.CommonError {
 func (mo *MongoType[T]) FindOne(randId string) (T, *commonlogger.CommonError) {
 	var nilItem T
 	var item T
-	filter := bson.D{{"randId", randId}}
+	filter := bson.D{{"item.randid", randId}}
 
 	initializePointers(&item)
 
