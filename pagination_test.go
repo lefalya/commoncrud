@@ -79,8 +79,8 @@ func TestInjectPagination(t *testing.T) {
 		pagination interfaces.Pagination[T]
 	}
 
-	pagination := Pagination[Student]("", "", nil, nil)
-	injected := Injected[Student]{
+	pagination := Pagination[Car]("", "", nil, nil)
+	injected := Injected[Car]{
 		pagination: pagination,
 	}
 

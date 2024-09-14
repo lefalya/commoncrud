@@ -74,14 +74,48 @@ func TestIntegrationAddItem(t *testing.T) {
 	dummyCar = NewMongoItem(dummyCar)
 	assert.NotNil(t, dummyCar)
 
-	mongo := Mongo[Car](logger, connectMongo())
+	t.Run("add item without sorted-set", func(t *testing.T) {
+		mongo := Mongo[Car](logger, connectMongo())
 
-	pagination := Pagination[Car](
-		paginationKeyFormat,
-		itemKeyFormat,
-		logger,
-		connectRedis(),
-	)
-	pagination.WithMongo(mongo, paginationFilter)
+		pagination := Pagination[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			connectRedis(),
+		)
+		pagination.WithMongo(mongo, paginationFilter)
+
+		errorAddItem := pagination.AddItem(paginationParameters, dummyCar)
+		assert.Nil(t, errorAddItem)
+	})
+
+	t.Run("add item with sorted-set added", func(t *testing.T) {
+		// creating dummy sorted set
+		redisClient := connectRedis()
+		member := redis.Z{
+			Score:  float64(time.Now().Unix()),
+			Member: RandId(),
+		}
+		key := concatKey(paginationKeyFormat, paginationParameters)
+		zadd := redisClient.ZAdd(
+			context.TODO(),
+			key,
+			member,
+		)
+		assert.Nil(t, zadd.Err())
+
+		// test starting point
+		mongo := Mongo[Car](logger, connectMongo())
+		pagination := Pagination[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			connectRedis(),
+		)
+		pagination.WithMongo(mongo, paginationFilter)
+
+		errorAddItem := pagination.AddItem(paginationParameters, dummyCar)
+		assert.Nil(t, errorAddItem)
+	})
 
 }
