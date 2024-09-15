@@ -61,6 +61,15 @@ func TestCreate(t *testing.T) {
 
 		assert.Nil(t, errorCreate)
 	})
+
+	mt.Run("create failure - MONGO_FATAL_ERROR", func(mt *mtest.T) {
+		mt.AddMockResponses(bson.D{{"ok", 0}})
+
+		mongo := Mongo[Student](logger, mt.Coll)
+		errorCreate := mongo.Create(dummyItem)
+
+		assert.NotNil(t, errorCreate)
+	})
 }
 
 func TestFindOne(t *testing.T) {
@@ -107,6 +116,18 @@ func TestFindOne(t *testing.T) {
 		assert.Equal(t, updatedTime.Day(), itemFromDb.UpdatedAt.Day())
 		assert.Equal(t, updatedTime.Month(), itemFromDb.UpdatedAt.Month())
 		assert.Equal(t, updatedTime.Year(), itemFromDb.UpdatedAt.Year())
+	})
+
+	mt.Run("item not found", func(mt *mtest.T) {
+		mt.AddMockResponses(mtest.CreateCursorResponse(0, "test.find", mtest.FirstBatch))
+
+		mongo := Mongo[Student](logger, mt.Coll)
+		item, errorFind := mongo.FindOne(RandId())
+
+		assert.NotNil(t, errorFind)
+		assert.Nil(t, item)
+		assert.Equal(t, errorFind.Err, MONGO_FATAL_ERROR)
+		assert.Equal(t, errorFind.Err, "find.mongodb_fatal_error")
 	})
 }
 
