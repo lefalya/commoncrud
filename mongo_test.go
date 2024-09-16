@@ -105,17 +105,19 @@ func TestFindOne(t *testing.T) {
 
 		mongo := Mongo[Student](logger, mt.Coll)
 
-		itemFromDb, _ := mongo.FindOne(dummyItem.RandId)
+		item, _ := mongo.FindOne(dummyItem.RandId)
 
-		assert.NotNil(t, itemFromDb)
-		assert.Equal(t, currentTime, itemFromDb.CreatedAt)
-		assert.Equal(t, currentTime.Day(), itemFromDb.CreatedAt.Day())
-		assert.Equal(t, currentTime.Month(), itemFromDb.CreatedAt.Month())
-		assert.Equal(t, currentTime.Year(), itemFromDb.CreatedAt.Year())
-		assert.Equal(t, updatedTime, itemFromDb.UpdatedAt)
-		assert.Equal(t, updatedTime.Day(), itemFromDb.UpdatedAt.Day())
-		assert.Equal(t, updatedTime.Month(), itemFromDb.UpdatedAt.Month())
-		assert.Equal(t, updatedTime.Year(), itemFromDb.UpdatedAt.Year())
+		assert.NotNil(t, item)
+		assert.Equal(t, currentTime, item.CreatedAt)
+		assert.Equal(t, currentTime.Day(), item.CreatedAt.Day())
+		assert.Equal(t, currentTime.Month(), item.CreatedAt.Month())
+		assert.Equal(t, currentTime.Year(), item.CreatedAt.Year())
+		assert.Equal(t, updatedTime, item.UpdatedAt)
+		assert.Equal(t, updatedTime.Day(), item.UpdatedAt.Day())
+		assert.Equal(t, updatedTime.Month(), item.UpdatedAt.Month())
+		assert.Equal(t, updatedTime.Year(), item.UpdatedAt.Year())
+		assert.Equal(t, dummyItem.FirstName, item.FirstName)
+		assert.Equal(t, dummyItem.LastName, item.LastName)
 	})
 
 	mt.Run("item not found", func(mt *mtest.T) {
@@ -125,9 +127,71 @@ func TestFindOne(t *testing.T) {
 		item, errorFind := mongo.FindOne(RandId())
 
 		assert.NotNil(t, errorFind)
-		assert.Nil(t, item)
+		assert.NotNil(t, item)
+		assert.Equal(t, errorFind.Err, DOCUMENT_NOT_FOUND)
+		assert.Equal(t, errorFind.Context, "find.document_not_found")
+	})
+
+	mt.Run("mongo fatal error", func(mt *mtest.T) {
+		mt.AddMockResponses(bson.D{{"ok", 0}})
+
+		mongo := Mongo[Student](logger, mt.Coll)
+		item, errorFind := mongo.FindOne(RandId())
+
+		assert.NotNil(t, errorFind)
+		assert.NotNil(t, item)
 		assert.Equal(t, errorFind.Err, MONGO_FATAL_ERROR)
-		assert.Equal(t, errorFind.Err, "find.mongodb_fatal_error")
+		assert.Equal(t, errorFind.Context, "find.mongodb_fatal_error")
+	})
+
+	mt.Run("failed to parse CreatedAt time", func(mt *mtest.T) {
+		mt.AddMockResponses(mtest.CreateCursorResponse(1, "test.find", mtest.FirstBatch, bson.D{
+			{"_id", dummyItem.ObjectId},
+			{"uuid", dummyItem.UUID},
+			{"randid", dummyItem.RandId},
+			{"createdat", "Mon, 4 July 2024 12:23:34"},
+			{"updatedat", dummyItem.UpdatedAtString},
+			{"firstname", dummyItem.FirstName},
+			{"lastname", dummyItem.LastName},
+		}))
+
+		mongo := Mongo[Student](logger, mt.Coll)
+		item, errorFind := mongo.FindOne(RandId())
+
+		assert.NotNil(t, item)
+		assert.Nil(t, errorFind)
+		assert.Equal(t, time.Time{}, item.CreatedAt)
+		assert.Equal(t, updatedTime, item.UpdatedAt)
+		assert.Equal(t, updatedTime.Day(), item.UpdatedAt.Day())
+		assert.Equal(t, updatedTime.Month(), item.UpdatedAt.Month())
+		assert.Equal(t, updatedTime.Year(), item.UpdatedAt.Year())
+		assert.Equal(t, dummyItem.FirstName, item.FirstName)
+		assert.Equal(t, dummyItem.LastName, item.LastName)
+	})
+
+	mt.Run("failed to parse UpdatedAt time", func(mt *mtest.T) {
+		mt.AddMockResponses(mtest.CreateCursorResponse(1, "test.find", mtest.FirstBatch, bson.D{
+			{"_id", dummyItem.ObjectId},
+			{"uuid", dummyItem.UUID},
+			{"randid", dummyItem.RandId},
+			{"createdat", dummyItem.CreatedAtString},
+			{"updatedat", "Mon, 4 July 2024 12:23:34"},
+			{"firstname", dummyItem.FirstName},
+			{"lastname", dummyItem.LastName},
+		}))
+
+		mongo := Mongo[Student](logger, mt.Coll)
+		item, errorFind := mongo.FindOne(RandId())
+
+		assert.NotNil(t, item)
+		assert.Nil(t, errorFind)
+		assert.Equal(t, time.Time{}, item.UpdatedAt)
+		assert.Equal(t, currentTime, item.CreatedAt)
+		assert.Equal(t, currentTime.Day(), item.CreatedAt.Day())
+		assert.Equal(t, currentTime.Month(), item.CreatedAt.Month())
+		assert.Equal(t, currentTime.Year(), item.CreatedAt.Year())
+		assert.Equal(t, dummyItem.FirstName, item.FirstName)
+		assert.Equal(t, dummyItem.LastName, item.LastName)
 	})
 }
 
@@ -149,6 +213,17 @@ func TestUpdate(t *testing.T) {
 
 		assert.Nil(t, errorUpdate)
 	})
+
+	mt.Run("fatal error", func(mt *mtest.T) {
+		mt.AddMockResponses(bson.D{{"ok", 0}})
+
+		mongo := Mongo[Student](logger, mt.Coll)
+		errorUpdate := mongo.Update(dummyItem)
+
+		assert.NotNil(t, errorUpdate)
+		assert.Equal(t, MONGO_FATAL_ERROR, errorUpdate.Err)
+		assert.Equal(t, "update.mongodb_fatal_error", errorUpdate.Context)
+	})
 }
 
 func TestDelete(t *testing.T) {
@@ -161,13 +236,23 @@ func TestDelete(t *testing.T) {
 
 	dummyItem = NewMongoItem(dummyItem)
 	mt.Run("delete success", func(mt *mtest.T) {
-
 		mt.AddMockResponses(mtest.CreateSuccessResponse())
 
 		mongo := Mongo[Student](logger, mt.Coll)
 		errorUpdate := mongo.Delete(dummyItem)
 
 		assert.Nil(t, errorUpdate)
+	})
+
+	mt.Run("fatal error", func(mt *mtest.T) {
+		mt.AddMockResponses(bson.D{{"ok", 0}})
+
+		mongo := Mongo[Student](logger, mt.Coll)
+		errorUpdate := mongo.Delete(dummyItem)
+
+		assert.NotNil(t, errorUpdate)
+		assert.Equal(t, MONGO_FATAL_ERROR, errorUpdate.Err)
+		assert.Equal(t, "delete.mongodb_fatal_error", errorUpdate.Context)
 	})
 }
 
@@ -220,7 +305,7 @@ func TestFindMany(t *testing.T) {
 		LastName:  "Wilson",
 	}
 
-	mt.Run("seed success with lastItem", func(mt *mtest.T) {
+	mt.Run("success with lastItem", func(mt *mtest.T) {
 		dummyItem1Res := mtest.CreateCursorResponse(1, "test.seedPartial", mtest.FirstBatch, bson.D{
 			{"_id", dummyItem1.ObjectId},
 			{"uuid", dummyItem1.UUID},
@@ -310,5 +395,22 @@ func TestFindMany(t *testing.T) {
 		assert.Equal(t, students[3].LastName, dummyItem4.LastName)
 		assert.Equal(t, students[4].FirstName, dummyItem5.FirstName)
 		assert.Equal(t, students[4].LastName, dummyItem5.LastName)
+	})
+
+	mt.Run("fatal error", func(mt *mtest.T) {
+		mt.AddMockResponses(bson.D{{"ok", 0}})
+
+		filter := bson.D{}
+		findOptions := options.Find()
+		findOptions.SetSort(bson.D{{"_id", -1}})
+		findOptions.SetLimit(10)
+
+		mongo := Mongo[Student](logger, mt.Coll)
+		items, errorUpdate := mongo.FindMany(filter, findOptions)
+
+		assert.NotNil(t, errorUpdate)
+		assert.Nil(t, items)
+		assert.Equal(t, MONGO_FATAL_ERROR, errorUpdate.Err)
+		assert.Equal(t, "findmany.find_mongodb_fatal_error", errorUpdate.Context)
 	})
 }
