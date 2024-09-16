@@ -179,7 +179,7 @@ func TestRemoveItem(t *testing.T) {
 		mongoMock.EXPECT().Delete(car).Return(nil)
 
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
-		itemCache.EXPECT().Delete(car).Return(nil)
+		itemCache.EXPECT().Del(car).Return(nil)
 
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,

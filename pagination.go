@@ -155,7 +155,7 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlo
 		}
 	}
 
-	errorDelete := pg.itemCache.Delete(item)
+	errorDelete := pg.itemCache.Del(item)
 	if errorDelete != nil {
 		return errorDelete
 	}

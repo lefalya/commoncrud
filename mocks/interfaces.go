@@ -9,8 +9,8 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	commonlogger "github.com/lefalya/commonlogger"
 	interfaces "github.com/lefalya/commoncrud/interfaces"
+	commonlogger "github.com/lefalya/commonlogger"
 	bson "go.mongodb.org/mongo-driver/bson"
 	primitive "go.mongodb.org/mongo-driver/bson/primitive"
 	mongo "go.mongodb.org/mongo-driver/mongo"
@@ -625,18 +625,18 @@ func (m *MockItemCache[T]) EXPECT() *MockItemCacheMockRecorder[T] {
 	return m.recorder
 }
 
-// Delete mocks base method.
-func (m *MockItemCache[T]) Delete(item T) *commonlogger.CommonError {
+// Del mocks base method.
+func (m *MockItemCache[T]) Del(item T) *commonlogger.CommonError {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", item)
+	ret := m.ctrl.Call(m, "Del", item)
 	ret0, _ := ret[0].(*commonlogger.CommonError)
 	return ret0
 }
 
-// Delete indicates an expected call of Delete.
-func (mr *MockItemCacheMockRecorder[T]) Delete(item interface{}) *gomock.Call {
+// Del indicates an expected call of Del.
+func (mr *MockItemCacheMockRecorder[T]) Del(item interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockItemCache[T])(nil).Delete), item)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Del", reflect.TypeOf((*MockItemCache[T])(nil).Del), item)
 }
 
 // Get mocks base method.

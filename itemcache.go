@@ -128,7 +128,7 @@ func (cr *ItemCacheType[T]) Set(item T) *commonlogger.CommonError {
 	return nil
 }
 
-func (cr *ItemCacheType[T]) Delete(item T) *commonlogger.CommonError {
+func (cr *ItemCacheType[T]) Del(item T) *commonlogger.CommonError {
 	key := fmt.Sprintf(cr.itemKeyFormat, item.GetRandId())
 
 	deleteRedis := cr.redisClient.Del(

@@ -65,7 +65,7 @@ type PaginationProcessor[T Item] func(item T, items *[]T, args ...interface{})
 type ItemCache[T Item] interface {
 	Get(randId string) (T, *commonlogger.CommonError)
 	Set(item T) *commonlogger.CommonError
-	Delete(item T) *commonlogger.CommonError
+	Del(item T) *commonlogger.CommonError
 }
 
 type Mongo[T Item] interface {

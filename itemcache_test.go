@@ -81,3 +81,11 @@ func TestGet(t *testing.T) {
 		assert.Equal(t, dummyItem.LastName, item.LastName)
 	})
 }
+
+func TestSet(t *testing.T) {
+
+}
+
+func TestDel(t *testing.T) {
+
+}
