@@ -1,4 +1,4 @@
-package commonpagination
+package commoncrud
 
 import (
 	"errors"
@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lefalya/commoncrud/interfaces"
 	"github.com/lefalya/commonlogger"
-	"github.com/lefalya/commonpagination/interfaces"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -29,23 +29,22 @@ var (
 	// Go's reference time, which is Mon Jan 2 15:04:05 MST 2006
 	FORMATTED_TIME = "2006-01-02T15:04:05.000000000Z"
 	// Redis errors
-	REDIS_FATAL_ERROR  = errors.New("(commonpagination) Redis fatal error")
-	KEY_NOT_FOUND      = errors.New("(commonpagination) Key not found")
-	ERROR_PARSE_JSON   = errors.New("(commonpagination) parse json fatal error!")
-	ERROR_MARSHAL_JSON = errors.New("(commonpagination) error marshal json!")
+	REDIS_FATAL_ERROR  = errors.New("(commoncrud) Redis fatal error")
+	KEY_NOT_FOUND      = errors.New("(commoncrud) Key not found")
+	ERROR_PARSE_JSON   = errors.New("(commoncrud) parse json fatal error!")
+	ERROR_MARSHAL_JSON = errors.New("(commoncrud) error marshal json!")
 	// Pagination errors
-	TOO_MUCH_REFERENCES     = errors.New("(commonpagination) Too much references")
-	NO_VALID_REFERENCES     = errors.New("(commonpagination) No valid references")
-	LASTITEM_MUST_MONGOITEM = errors.New("(commonpagination) Last item must be in interfaces.MongoItem")
-	NO_DATABASE_DEFINED     = errors.New("(commonpagination) Database not specified!")
+	TOO_MUCH_REFERENCES     = errors.New("(commoncrud) Too much references")
+	NO_VALID_REFERENCES     = errors.New("(commoncrud) No valid references")
+	LASTITEM_MUST_MONGOITEM = errors.New("(commoncrud) Last item must be in interfaces.MongoItem")
 	// MongoDB errors
-	REFERENCE_NOT_FOUND = errors.New("(commonpagination) Reference not found")
-	DOCUMENT_NOT_FOUND  = errors.New("(commonpagination) Document not found")
-	MONGO_FATAL_ERROR   = errors.New("(commonpagination) MongoDB fatal error")
-	DUPLICATE_RANDID    = errors.New("(commonpagination) Duplicate RandID")
-	NO_OBJECTID_PRESENT = errors.New("(commonpagination) No objectId presents")
-	FAILED_DECODE       = errors.New("(commonpagination) failed decode")
-	INVALID_HEX         = errors.New("(commonpagination) Invalid hex: fail to convert hex to ObjectId")
+	REFERENCE_NOT_FOUND = errors.New("(commoncrud) Reference not found")
+	DOCUMENT_NOT_FOUND  = errors.New("(commoncrud) Document not found")
+	MONGO_FATAL_ERROR   = errors.New("(commoncrud) MongoDB fatal error")
+	DUPLICATE_RANDID    = errors.New("(commoncrud) Duplicate RandID")
+	NO_OBJECTID_PRESENT = errors.New("(commoncrud) No objectId presents")
+	FAILED_DECODE       = errors.New("(commoncrud) failed decode")
+	INVALID_HEX         = errors.New("(commoncrud) Invalid hex: fail to convert hex to ObjectId")
 )
 
 func concatKey(keyFormat string, parameters []string) string {

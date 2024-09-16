@@ -1,12 +1,12 @@
-package commonpagination
+package commoncrud
 
 import (
 	"context"
 	"log/slog"
 	"time"
 
+	"github.com/lefalya/commoncrud/interfaces"
 	"github.com/lefalya/commonlogger"
-	"github.com/lefalya/commonpagination/interfaces"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -26,7 +26,6 @@ func Mongo[T interfaces.MongoItem](logger *slog.Logger, collection *mongo.Collec
 }
 
 func (mo *MongoType[T]) Create(item T) *commonlogger.CommonError {
-
 	createdAtStr := item.GetCreatedAt().Format(FORMATTED_TIME)
 	updatedAtStr := item.GetUpdatedAt().Format(FORMATTED_TIME)
 

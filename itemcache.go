@@ -1,4 +1,4 @@
-package commonpagination
+package commoncrud
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/lefalya/commoncrud/interfaces"
 	"github.com/lefalya/commonlogger"
-	"github.com/lefalya/commonpagination/interfaces"
 	"github.com/redis/go-redis/v9"
 )
 

@@ -1,4 +1,4 @@
-package commonpagination
+package commoncrud
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-redis/redismock/v9"
 	"github.com/google/uuid"
-	"github.com/lefalya/commonpagination/interfaces"
+	"github.com/lefalya/commoncrud/interfaces"
 	"github.com/stretchr/testify/assert"
 )
 

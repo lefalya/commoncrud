@@ -1,4 +1,4 @@
-package commonpagination
+package commoncrud
 
 import (
 	"log/slog"
@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-redis/redismock/v9"
 	"github.com/golang/mock/gomock"
-	"github.com/lefalya/commonpagination/interfaces"
-	mock_interfaces "github.com/lefalya/commonpagination/mocks"
+	"github.com/lefalya/commoncrud/interfaces"
+	mock_interfaces "github.com/lefalya/commoncrud/mocks"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
@@ -87,8 +87,12 @@ func TestInjectPagination(t *testing.T) {
 	assert.NotNil(t, injected)
 }
 
+func TestConcatKey(t *testing.T) {
+
+}
+
 func TestAddItem(t *testing.T) {
-	t.Run("successfully add item without adding to sorted set", func(t *testing.T) {
+	t.Run("successfully add item without addition to sorted set", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -111,6 +115,23 @@ func TestAddItem(t *testing.T) {
 		errorAddItem := pagination.AddItem(paginationParameters, car)
 		assert.Nil(t, errorAddItem)
 	})
+
+	t.Run("successfully add item with addition to sorted set", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+	})
+
+	t.Run("successfully add item with no database specified", func(t *testing.T) {
+
+	})
+
+	t.Run("zcard fatal error", func(t *testing.T) {})
+
+	t.Run("zadd fatal error", func(t *testing.T) {})
+
+	t.Run("set expire fatal error", func(t *testing.T) {})
+
+	t.Run("mongo create error", func(t *testing.T) {})
 }
 
 func TestUpdateItem(t *testing.T) {
@@ -137,6 +158,12 @@ func TestUpdateItem(t *testing.T) {
 		errorUpdateItem := pagination.UpdateItem(car)
 		assert.Nil(t, errorUpdateItem)
 	})
+
+	t.Run("successfull update with no database specified", func(t *testing.T) {})
+
+	t.Run("error mongo update", func(t *testing.T) {})
+
+	t.Run("error set itemcache", func(t *testing.T) {})
 }
 
 func TestRemoveItem(t *testing.T) {
@@ -166,4 +193,19 @@ func TestRemoveItem(t *testing.T) {
 		errorRemoveItem := pagination.RemoveItem(paginationParameters, car)
 		assert.Nil(t, errorRemoveItem)
 	})
+
+	t.Run("remove item success with no database specified", func(t *testing.T) {})
+
+	t.Run("zcard fatal error", func(t *testing.T) {})
+
+	t.Run("zrem fatal error", func(t *testing.T) {})
+
+	t.Run("itemcache delete error", func(t *testing.T) {})
+
+	t.Run("mongo delete error", func(t *testing.T) {})
+}
+
+func TestTotalItemOnCache(t *testing.T) {
+
+	t.Run("", func(t *testing.T) {})
 }

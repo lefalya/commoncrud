@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	commonlogger "github.com/lefalya/commonlogger"
-	interfaces "github.com/lefalya/commonpagination/interfaces"
+	interfaces "github.com/lefalya/commoncrud/interfaces"
 	bson "go.mongodb.org/mongo-driver/bson"
 	primitive "go.mongodb.org/mongo-driver/bson/primitive"
 	mongo "go.mongodb.org/mongo-driver/mongo"

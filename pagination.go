@@ -1,4 +1,4 @@
-package commonpagination
+package commoncrud
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lefalya/commoncrud/interfaces"
 	"github.com/lefalya/commonlogger"
-	"github.com/lefalya/commonpagination/interfaces"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -55,15 +55,6 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *commonlogge
 		if err != nil {
 			return err
 		}
-	} else {
-		return ItemLogHelper(
-			pg.logger,
-			NO_DATABASE_DEFINED,
-			"database not specified",
-			"additem.no_database_defined",
-			item,
-			"pagKeyParams", strings.Join(pagKeyParams, ", "),
-		)
 	}
 
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
@@ -129,14 +120,6 @@ func (pg *PaginationType[T]) UpdateItem(item T) *commonlogger.CommonError {
 		if err != nil {
 			return err
 		}
-	} else {
-		return ItemLogHelper(
-			pg.logger,
-			NO_DATABASE_DEFINED,
-			"database not specified",
-			"updateitem.no_database_defined",
-			item,
-		)
 	}
 
 	errorSet := pg.itemCache.Set(item)
@@ -182,14 +165,6 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlo
 		if err != nil {
 			return err
 		}
-	} else {
-		return ItemLogHelper(
-			pg.logger,
-			NO_DATABASE_DEFINED,
-			"database not specified",
-			"removeitem.no_database_defined",
-			item,
-		)
 	}
 
 	return nil
@@ -348,8 +323,6 @@ func (pg *PaginationType[T]) SeedOne(randId string) (*T, *commonlogger.CommonErr
 		}
 
 		result = item
-	} else {
-		// no database defined
 	}
 
 	return &result, nil

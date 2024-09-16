@@ -1,4 +1,4 @@
-module github.com/lefalya/commonpagination
+module github.com/lefalya/commoncrud
 
 go 1.21.0
 

@@ -1,4 +1,4 @@
-package commonpagination
+package commoncrud
 
 import (
 	"context"

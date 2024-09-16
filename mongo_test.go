@@ -1,4 +1,4 @@
-package commonpagination
+package commoncrud
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lefalya/commonpagination/interfaces"
+	"github.com/lefalya/commoncrud/interfaces"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
