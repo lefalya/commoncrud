@@ -319,7 +319,11 @@ func (pg *PaginationType[T]) FetchLinked(
 				continue
 			}
 
-			processor(item, &items, processorArgs...)
+			if processor != nil {
+				processor(item, &items, processorArgs...)
+			} else {
+				items = append(items, item)
+			}
 		}
 	}
 
@@ -369,7 +373,11 @@ func (pg *PaginationType[T]) FetchAll(
 				continue
 			}
 
-			processor(item, &items, processorArgs...)
+			if processor != nil {
+				processor(item, &items, processorArgs...)
+			} else {
+				items = append(items, item)
+			}
 		}
 	}
 
@@ -401,7 +409,7 @@ func (pg *PaginationType[T]) SeedLinked(
 	paginationKeyParameters []string,
 	lastItem T,
 	itemPerPage int64,
-	processor interfaces.PaginationProcessor[T],
+	processor interfaces.SeedProcessor[T],
 	processorArgs ...interface{},
 ) ([]T, *commonlogger.CommonError) {
 	errorArgs := []string{}
@@ -492,11 +500,12 @@ func (pg *PaginationType[T]) SeedLinked(
 				item.SetUpdatedAt(parsedTime)
 			}
 
-			processor(
-				item,
-				&result,
-				processorArgs...,
-			)
+			// During the seeding process, the processor functions solely as an item modifier/processor.
+			// In contrast, during the fetching process, the processor also evaluates whether
+			// each item meets the criteria to be included in the results.
+			if processor != nil {
+				processor(&item, processorArgs...)
+			}
 
 			pg.AddItem(paginationKeyParameters, item)
 
@@ -517,7 +526,7 @@ func (pg *PaginationType[T]) SeedLinked(
 
 func (pg *PaginationType[T]) SeedAll(
 	paginationKeyParameters []string,
-	processor interfaces.PaginationProcessor[T],
+	processor interfaces.SeedProcessor[T],
 	processorArgs ...interface{},
 ) ([]T, *commonlogger.CommonError) {
 	errorArgs := []string{}
@@ -569,11 +578,12 @@ func (pg *PaginationType[T]) SeedAll(
 				item.SetUpdatedAt(parsedTime)
 			}
 
-			processor(
-				item,
-				&result,
-				processorArgs...,
-			)
+			// During the seeding process, the processor functions solely as an item modifier/processor.
+			// In contrast, during the fetching process, the processor also evaluates whether
+			// each item meets the criteria to be included in the results.
+			if processor != nil {
+				processor(&item, processorArgs...)
+			}
 
 			pg.AddItem(paginationKeyParameters, item)
 

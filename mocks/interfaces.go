@@ -527,6 +527,26 @@ func (mr *MockPaginationMockRecorder[T]) SeedAll(paginationKeyParameters, proces
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedAll", reflect.TypeOf((*MockPagination[T])(nil).SeedAll), varargs...)
 }
 
+// SeedLinked mocks base method.
+func (m *MockPagination[T]) SeedLinked(paginationKeyParameters []string, lastItem T, itemPerPage int64, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{paginationKeyParameters, lastItem, itemPerPage, processor}
+	for _, a := range processorArgs {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SeedLinked", varargs...)
+	ret0, _ := ret[0].([]T)
+	ret1, _ := ret[1].(*commonlogger.CommonError)
+	return ret0, ret1
+}
+
+// SeedLinked indicates an expected call of SeedLinked.
+func (mr *MockPaginationMockRecorder[T]) SeedLinked(paginationKeyParameters, lastItem, itemPerPage, processor interface{}, processorArgs ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{paginationKeyParameters, lastItem, itemPerPage, processor}, processorArgs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedLinked", reflect.TypeOf((*MockPagination[T])(nil).SeedLinked), varargs...)
+}
+
 // SeedOne mocks base method.
 func (m *MockPagination[T]) SeedOne(randId string) (*T, *commonlogger.CommonError) {
 	m.ctrl.T.Helper()
@@ -540,26 +560,6 @@ func (m *MockPagination[T]) SeedOne(randId string) (*T, *commonlogger.CommonErro
 func (mr *MockPaginationMockRecorder[T]) SeedOne(randId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedOne", reflect.TypeOf((*MockPagination[T])(nil).SeedOne), randId)
-}
-
-// SeedPartial mocks base method.
-func (m *MockPagination[T]) SeedPartial(paginationKeyParameters []string, lastItem T, itemPerPage int64, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{paginationKeyParameters, lastItem, itemPerPage, processor}
-	for _, a := range processorArgs {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "SeedPartial", varargs...)
-	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
-	return ret0, ret1
-}
-
-// SeedPartial indicates an expected call of SeedPartial.
-func (mr *MockPaginationMockRecorder[T]) SeedPartial(paginationKeyParameters, lastItem, itemPerPage, processor interface{}, processorArgs ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{paginationKeyParameters, lastItem, itemPerPage, processor}, processorArgs...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedPartial", reflect.TypeOf((*MockPagination[T])(nil).SeedPartial), varargs...)
 }
 
 // TotalItemOnCache mocks base method.

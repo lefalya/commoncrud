@@ -553,7 +553,6 @@ func TestFetchAll(t *testing.T) {
 		assert.NotNil(t, fetchAll)
 		assert.Equal(t, 5, len(fetchAll))
 	})
-
 	t.Run("zrevrange error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -578,7 +577,6 @@ func TestFetchAll(t *testing.T) {
 		assert.Equal(t, REDIS_FATAL_ERROR, errorFetchAll.Err)
 		assert.Equal(t, "fetchall.zrevrange_fatal_error", errorFetchAll.Context)
 	})
-
 	t.Run("Get item redis fatal error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -612,7 +610,6 @@ func TestFetchAll(t *testing.T) {
 		assert.Equal(t, REDIS_FATAL_ERROR, errorFetchAll.Err)
 		assert.Equal(t, "fetchall.get_item_fatal_error", errorFetchAll.Context)
 	})
-
 	t.Run("One of the item member keys doesn't exists", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()

@@ -52,15 +52,16 @@ type Pagination[T Item] interface {
 		paginationKeyParameters []string,
 		lastItem T,
 		itemPerPage int64,
-		processor PaginationProcessor[T],
+		processor SeedProcessor[T],
 		processorArgs ...interface{}) ([]T, *commonlogger.CommonError)
 	SeedAll(
 		paginationKeyParameters []string,
-		processor PaginationProcessor[T],
+		processor SeedProcessor[T],
 		processorArgs ...interface{}) ([]T, *commonlogger.CommonError)
 }
 
 type PaginationProcessor[T Item] func(item T, items *[]T, args ...interface{})
+type SeedProcessor[T Item] func(item *T, args ...interface{})
 
 type ItemCache[T Item] interface {
 	Get(randId string) (T, *commonlogger.CommonError)
