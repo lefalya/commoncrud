@@ -48,7 +48,7 @@ type Pagination[T Item] interface {
 		processorArgs ...interface{}) ([]T, *commonlogger.CommonError)
 	FetchAll(pagKeyParams []string, processor PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError)
 	SeedOne(randId string) (*T, *commonlogger.CommonError)
-	SeedPartial(
+	SeedLinked(
 		paginationKeyParameters []string,
 		lastItem T,
 		itemPerPage int64,

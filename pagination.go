@@ -331,6 +331,47 @@ func (pg *PaginationType[T]) FetchAll(
 	processor interfaces.PaginationProcessor[T],
 	processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
 	var items []T
+	key := concatKey(pg.pagKeyFormat, pagKeyParams)
+
+	members := pg.redisClient.ZRevRange(context.TODO(), key, 0, -1)
+	if members.Err() != nil {
+		return nil, commonlogger.LogError(
+			pg.logger,
+			REDIS_FATAL_ERROR,
+			members.Err().Error(),
+			"fetchall.zrevrange_fatal_error",
+			"pagKeyParams", strings.Join(pagKeyParams, ", "),
+		)
+	}
+
+	if len(members.Val()) > 0 {
+		pg.redisClient.Expire(context.TODO(), key, SORTED_SET_TTL)
+
+		for _, member := range members.Val() {
+			item, errorGetItem := pg.itemCache.Get(member)
+			if errorGetItem != nil && errorGetItem.Err == REDIS_FATAL_ERROR {
+				return nil, commonlogger.LogError(
+					pg.logger,
+					REDIS_FATAL_ERROR,
+					"redis fatal error while retrieving individual key",
+					"fetchall.get_item_fatal_error",
+					"pagKeyParams", strings.Join(pagKeyParams, ", "),
+				)
+			} else if errorGetItem != nil && errorGetItem.Err == KEY_NOT_FOUND {
+				commonlogger.LogError(
+					pg.logger,
+					KEY_NOT_FOUND,
+					"individual key not found!",
+					"fetchall.get_item_key_not_found",
+					"pagKeyParams", strings.Join(pagKeyParams, ", "),
+				)
+
+				continue
+			}
+
+			processor(item, &items, processorArgs...)
+		}
+	}
 
 	return items, nil
 }
@@ -342,14 +383,21 @@ func (pg *PaginationType[T]) SeedOne(randId string) (*T, *commonlogger.CommonErr
 		if errorFind != nil {
 			return nil, errorFind
 		}
-
 		result = item
+	} else {
+		return nil, commonlogger.LogError(
+			pg.logger,
+			NO_DATABASE_CONFIGURED,
+			"",
+			"seedone.no_database_configured",
+			"randId", randId,
+		)
 	}
 
 	return &result, nil
 }
 
-func (pg *PaginationType[T]) SeedPartial(
+func (pg *PaginationType[T]) SeedLinked(
 	paginationKeyParameters []string,
 	lastItem T,
 	itemPerPage int64,
@@ -361,9 +409,8 @@ func (pg *PaginationType[T]) SeedPartial(
 	var result []T
 	var filter bson.D
 
-	if !reflect.ValueOf(lastItem).IsZero() {
-		// selection based on companion DB type
-		if pg.mongo != nil {
+	if pg.mongo != nil {
+		if !reflect.ValueOf(lastItem).IsZero() {
 			inMongoItem, ok := any(lastItem).(interfaces.MongoItem)
 			if !ok {
 				// return lastItem must be in MongoItem
@@ -397,16 +444,14 @@ func (pg *PaginationType[T]) SeedPartial(
 					),
 				},
 			}
-		}
-	} else {
-		if pg.mongo != nil {
-			filter = bson.D{
-				{Key: "$and", Value: pg.mongo.GetPaginationFilter()},
+		} else {
+			if pg.mongo != nil {
+				filter = bson.D{
+					{Key: "$and", Value: pg.mongo.GetPaginationFilter()},
+				}
 			}
 		}
-	}
 
-	if pg.mongo != nil {
 		findOptions := options.Find()
 		findOptions.SetSort(bson.D{{"_id", -1}})
 		findOptions.SetLimit(itemPerPage)
@@ -458,7 +503,13 @@ func (pg *PaginationType[T]) SeedPartial(
 			result = append(result, item)
 		}
 	} else {
-		// please define database to use.
+		return nil, commonlogger.LogError(
+			pg.logger,
+			NO_DATABASE_CONFIGURED,
+			"",
+			"seedpartial.no_database_configured",
+			errorArgs...,
+		)
 	}
 
 	return result, nil
@@ -469,7 +520,66 @@ func (pg *PaginationType[T]) SeedAll(
 	processor interfaces.PaginationProcessor[T],
 	processorArgs ...interface{},
 ) ([]T, *commonlogger.CommonError) {
-	var items []T
+	errorArgs := []string{}
 
-	return items, nil
+	var result []T
+	var filter bson.D
+
+	if pg.mongo != nil {
+		filter = bson.D{
+			{Key: "$and", Value: pg.mongo.GetPaginationFilter()},
+		}
+
+		findOptions := options.Find()
+		findOptions.SetSort(bson.D{{"_id", -1}})
+
+		cursor, errorFindItems := pg.mongo.FindMany(
+			filter,
+			findOptions,
+		)
+
+		if errorFindItems != nil {
+			return nil, errorFindItems
+		}
+		defer cursor.Close(context.TODO())
+
+		for cursor.Next(context.TODO()) {
+			var item T
+
+			errorDecode := cursor.Decode(&item)
+			if errorDecode != nil {
+				commonlogger.LogError(
+					pg.logger,
+					FAILED_DECODE,
+					errorDecode.Error(),
+					"seedall.failed_decode",
+					errorArgs...,
+				)
+
+				continue
+			}
+
+			parsedTime, errorParse := time.Parse(FORMATTED_TIME, item.GetCreatedAtString())
+			if errorParse == nil {
+				item.SetCreatedAt(parsedTime)
+			}
+
+			parsedTime, errorParse = time.Parse(FORMATTED_TIME, item.GetUpdatedAtString())
+			if errorParse == nil {
+				item.SetUpdatedAt(parsedTime)
+			}
+
+			processor(
+				item,
+				&result,
+				processorArgs...,
+			)
+
+			pg.AddItem(paginationKeyParameters, item)
+
+			result = append(result, item)
+		}
+	}
+
+	return result, nil
 }

@@ -22,12 +22,12 @@ const (
 	MAXIMUM_AMOUNT_REFERENCES  = 5
 	RANDID_LENGTH              = 16
 	MONGO_DUPLICATE_ERROR_CODE = 11000
+	// Go's reference time, which is Mon Jan 2 15:04:05 MST 2006
+	FORMATTED_TIME = "2006-01-02T15:04:05.000000000Z"
 )
 
 var (
 	logger = slog.New(slog.NewJSONHandler(os.Stderr, nil))
-	// Go's reference time, which is Mon Jan 2 15:04:05 MST 2006
-	FORMATTED_TIME = "2006-01-02T15:04:05.000000000Z"
 	// Redis errors
 	REDIS_FATAL_ERROR  = errors.New("(commoncrud) Redis fatal error")
 	KEY_NOT_FOUND      = errors.New("(commoncrud) Key not found")
@@ -36,6 +36,8 @@ var (
 	// Pagination errors
 	TOO_MUCH_REFERENCES     = errors.New("(commoncrud) Too much references")
 	NO_VALID_REFERENCES     = errors.New("(commoncrud) No valid references")
+	NO_DATABASE_CONFIGURED  = errors.New("(commoncrud) No database configured!")
+	ONE_DATABASE_ONLY       = errors.New("(commoncrud) Please connect to only one database type. Multiple database connections are not supported.")
 	LASTITEM_MUST_MONGOITEM = errors.New("(commoncrud) Last item must be in interfaces.MongoItem")
 	// MongoDB errors
 	REFERENCE_NOT_FOUND = errors.New("(commoncrud) Reference not found")

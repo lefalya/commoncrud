@@ -46,7 +46,6 @@ func TestCreate(t *testing.T) {
 
 		assert.Nil(t, errorCreate)
 	})
-
 	mt.Run("duplicate RandId", func(mt *mtest.T) {
 		mt.AddMockResponses(mtest.CreateWriteErrorsResponse(mtest.WriteError{
 			Index:   1,
@@ -61,7 +60,6 @@ func TestCreate(t *testing.T) {
 
 		assert.Nil(t, errorCreate)
 	})
-
 	mt.Run("create failure - MONGO_FATAL_ERROR", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
 
@@ -131,7 +129,6 @@ func TestFindOne(t *testing.T) {
 		assert.Equal(t, errorFind.Err, DOCUMENT_NOT_FOUND)
 		assert.Equal(t, errorFind.Context, "find.document_not_found")
 	})
-
 	mt.Run("mongo fatal error", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
 
@@ -143,7 +140,6 @@ func TestFindOne(t *testing.T) {
 		assert.Equal(t, errorFind.Err, MONGO_FATAL_ERROR)
 		assert.Equal(t, errorFind.Context, "find.mongodb_fatal_error")
 	})
-
 	mt.Run("failed to parse CreatedAt time", func(mt *mtest.T) {
 		mt.AddMockResponses(mtest.CreateCursorResponse(1, "test.find", mtest.FirstBatch, bson.D{
 			{"_id", dummyItem.ObjectId},
@@ -168,7 +164,6 @@ func TestFindOne(t *testing.T) {
 		assert.Equal(t, dummyItem.FirstName, item.FirstName)
 		assert.Equal(t, dummyItem.LastName, item.LastName)
 	})
-
 	mt.Run("failed to parse UpdatedAt time", func(mt *mtest.T) {
 		mt.AddMockResponses(mtest.CreateCursorResponse(1, "test.find", mtest.FirstBatch, bson.D{
 			{"_id", dummyItem.ObjectId},
@@ -213,7 +208,6 @@ func TestUpdate(t *testing.T) {
 
 		assert.Nil(t, errorUpdate)
 	})
-
 	mt.Run("fatal error", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
 
@@ -243,7 +237,6 @@ func TestDelete(t *testing.T) {
 
 		assert.Nil(t, errorUpdate)
 	})
-
 	mt.Run("fatal error", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
 
@@ -396,7 +389,6 @@ func TestFindMany(t *testing.T) {
 		assert.Equal(t, students[4].FirstName, dummyItem5.FirstName)
 		assert.Equal(t, students[4].LastName, dummyItem5.LastName)
 	})
-
 	mt.Run("fatal error", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
 
