@@ -63,6 +63,16 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *commonlogge
 		context.TODO(),
 		key,
 	)
+	if totalItem.Err() != nil {
+		return ItemLogHelper(
+			pg.logger,
+			REDIS_FATAL_ERROR,
+			totalItem.Err().Error(),
+			"additem.zcard_redis_fatal_error",
+			item,
+			"pagKeyParams", strings.Join(pagKeyParams, ", "),
+		)
+	}
 
 	// only add item to sorted set, if the sorted set exists
 	if totalItem.Val() > 0 {
@@ -138,6 +148,17 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlo
 		context.TODO(),
 		key,
 	)
+	if totalItem.Err() != nil {
+		return ItemLogHelper(
+			pg.logger,
+			REDIS_FATAL_ERROR,
+			totalItem.Err().Error(),
+			"removeitem.zcard_redis_fatal_error",
+			item,
+			"pagKeyParams", strings.Join(pagKeyParams, ", "),
+		)
+	}
+
 	// only remove item from sorted set, if the sorted set exists
 	if totalItem.Val() > 0 {
 		removeItemSortedSet := pg.redisClient.ZRem(context.TODO(), key, item.GetRandId())
