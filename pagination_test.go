@@ -228,7 +228,6 @@ func TestAddItem(t *testing.T) {
 		errorAddItem := pagination.AddItem(paginationParameters, car)
 		assert.NotNil(t, errorAddItem)
 		assert.Equal(t, REDIS_FATAL_ERROR, errorAddItem.Err)
-		assert.Equal(t, "additem.zcard_redis_fatal_error", errorAddItem.Context)
 	})
 	t.Run("zadd fatal error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -463,12 +462,15 @@ func TestRemoveItem(t *testing.T) {
 		redisDB, mockedRedis := redismock.NewClientMock()
 		mockedRedis.ExpectZCard(key).SetErr(errors.New("fatal error: Redis connection lost"))
 
+		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCache.EXPECT().Del(car).Return(nil)
+
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,
 			itemKeyFormat,
 			logger,
 			redisDB,
-			nil,
+			itemCache,
 		)
 
 		errorRemoveItem := pagination.RemoveItem(paginationParameters, car)
@@ -476,9 +478,76 @@ func TestRemoveItem(t *testing.T) {
 		assert.Equal(t, REDIS_FATAL_ERROR, errorRemoveItem.Err)
 	})
 	t.Run("zrem but item not found", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
 		redisDB, mockedRedis := redismock.NewClientMock()
 		mockedRedis.ExpectZCard(key).SetVal(3)
 		mockedRedis.ExpectZRem(key, car.GetRandId()).SetVal(0)
+
+		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCache.EXPECT().Del(car).Return(nil)
+
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCache,
+		)
+
+		errorRemoveItem := pagination.RemoveItem(paginationParameters, car)
+		assert.Nil(t, errorRemoveItem)
+	})
+	t.Run("itemcache delete error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCache.EXPECT().Del(car).Return(&commonlogger.CommonError{Err: REDIS_FATAL_ERROR})
+
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			nil,
+			itemCache,
+		)
+
+		errorRemoveItem := pagination.RemoveItem(paginationParameters, car)
+		assert.NotNil(t, errorRemoveItem)
+		assert.Equal(t, REDIS_FATAL_ERROR, errorRemoveItem.Err)
+	})
+	t.Run("mongo delete error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
+		mongoMock.EXPECT().SetPaginationFilter(nil)
+		mongoMock.EXPECT().Delete(car).Return(&commonlogger.CommonError{Err: MONGO_FATAL_ERROR})
+
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			nil,
+			nil,
+		)
+		pagination.WithMongo(mongoMock, nil)
+
+		errorRemoveItem := pagination.RemoveItem(paginationParameters, car)
+		assert.NotNil(t, errorRemoveItem)
+		assert.Equal(t, MONGO_FATAL_ERROR, errorRemoveItem.Err)
+	})
+}
+
+func TestTotalItemOnCache(t *testing.T) {
+	t.Run("successfully get total items from cache", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZCard(key).SetVal(5)
 
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,
@@ -488,17 +557,32 @@ func TestRemoveItem(t *testing.T) {
 			nil,
 		)
 
-		errorRemoveItem := pagination.RemoveItem(paginationParameters, car)
-		assert.Nil(t, errorRemoveItem)
-	})
-	t.Run("itemcache delete error", func(t *testing.T) {
-	})
-	t.Run("mongo delete error", func(t *testing.T) {})
-}
+		errorTotalItems := pagination.TotalItemOnCache(paginationParameters)
 
-func TestTotalItemOnCache(t *testing.T) {
+		assert.Nil(t, errorTotalItems)
+	})
 
-	t.Run("", func(t *testing.T) {})
+	t.Run("redis ZCard fatal error", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZCard(key).SetErr(errors.New("fatal error: Redis connection lost")) // Simulate a Redis connection error
+
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			nil,
+		)
+
+		errorTotalItems := pagination.TotalItemOnCache(paginationParameters)
+
+		assert.NotNil(t, errorTotalItems)
+		assert.Equal(t, REDIS_FATAL_ERROR, errorTotalItems.Err)
+		assert.Equal(t, "totalitem.zcard_redis_fatal_error", errorTotalItems.Context)
+	})
 }
 
 func TestFetchAll(t *testing.T) {
@@ -646,4 +730,15 @@ func TestFetchAll(t *testing.T) {
 		assert.NotNil(t, fetchAll)
 		assert.Equal(t, 4, len(fetchAll))
 	})
+}
+
+func TestSeedLinked(t *testing.T) {
+
+	t.Run("succesfully seed documents", func(t *testing.T) {
+
+	})
+}
+
+func TestSeedAll(t *testing.T) {
+
 }

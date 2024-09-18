@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type Student struct {
+type TestStructItemCache struct {
 	*Item      `bson:",inline"`
 	*MongoItem `bson:",inline"`
 	FirstName  string `bson:"firstname"`
@@ -24,9 +24,9 @@ func TestInjectItemCache(t *testing.T) {
 		itemCache interfaces.ItemCache[T]
 	}
 
-	itemCache := ItemCache[Student]("", nil, nil)
+	itemCache := ItemCache[TestStructItemCache]("", nil, nil)
 
-	injected := Injected[Student]{
+	injected := Injected[TestStructItemCache]{
 		itemCache: itemCache,
 	}
 
@@ -36,7 +36,7 @@ func TestInjectItemCache(t *testing.T) {
 func TestGet(t *testing.T) {
 	currentTime := time.Now().In(time.UTC)
 
-	dummyItem := Student{
+	dummyItem := TestStructItemCache{
 		Item: &Item{
 			UUID:            uuid.New().String(),
 			RandId:          RandId(),
@@ -61,7 +61,7 @@ func TestGet(t *testing.T) {
 		mockRedis.ExpectGet(expectedKey).SetVal(string(jsonStringDummyItem))
 		mockRedis.ExpectExpire(expectedKey, INDIVIDUAL_KEY_TTL).SetVal(true)
 
-		itemCache := ItemCache[Student](dummyItemKeyFormat, logger, redisClient)
+		itemCache := ItemCache[TestStructItemCache](dummyItemKeyFormat, logger, redisClient)
 
 		item, err := itemCache.Get(dummyItem.RandId)
 

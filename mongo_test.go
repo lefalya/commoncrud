@@ -14,14 +14,21 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type TestStructMongo struct {
+	*Item      `bson:",inline"`
+	*MongoItem `bson:",inline"`
+	FirstName  string `bson:"firstname"`
+	LastName   string `bson:"lastname"`
+}
+
 func TestInjectMongo(t *testing.T) {
 	type Injected[T interfaces.Item] struct {
 		mongo interfaces.Mongo[T]
 	}
 
-	mongo := Mongo[Student](nil, nil)
+	mongo := Mongo[TestStructMongo](nil, nil)
 
-	injected := Injected[Student]{
+	injected := Injected[TestStructMongo]{
 		mongo: mongo,
 	}
 
@@ -31,7 +38,7 @@ func TestInjectMongo(t *testing.T) {
 func TestCreate(t *testing.T) {
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 
-	dummyItem := Student{
+	dummyItem := TestStructMongo{
 		FirstName: "Walter",
 		LastName:  "White",
 	}
@@ -41,7 +48,7 @@ func TestCreate(t *testing.T) {
 	mt.Run("create success", func(mt *mtest.T) {
 		mt.AddMockResponses(mtest.CreateSuccessResponse())
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		errorCreate := mongo.Create(dummyItem)
 
 		assert.Nil(t, errorCreate)
@@ -55,7 +62,7 @@ func TestCreate(t *testing.T) {
 
 		mt.AddMockResponses(mtest.CreateSuccessResponse())
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		errorCreate := mongo.Create(dummyItem)
 
 		assert.Nil(t, errorCreate)
@@ -63,7 +70,7 @@ func TestCreate(t *testing.T) {
 	mt.Run("create failure - MONGO_FATAL_ERROR", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		errorCreate := mongo.Create(dummyItem)
 
 		assert.NotNil(t, errorCreate)
@@ -76,7 +83,7 @@ func TestFindOne(t *testing.T) {
 
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 
-	dummyItem := Student{
+	dummyItem := TestStructMongo{
 		Item: &Item{
 			UUID:            uuid.New().String(),
 			RandId:          RandId(),
@@ -101,7 +108,7 @@ func TestFindOne(t *testing.T) {
 			{"lastname", dummyItem.LastName},
 		}))
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 
 		item, _ := mongo.FindOne(dummyItem.RandId)
 
@@ -121,7 +128,7 @@ func TestFindOne(t *testing.T) {
 	mt.Run("item not found", func(mt *mtest.T) {
 		mt.AddMockResponses(mtest.CreateCursorResponse(0, "test.find", mtest.FirstBatch))
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		item, errorFind := mongo.FindOne(RandId())
 
 		assert.NotNil(t, errorFind)
@@ -132,7 +139,7 @@ func TestFindOne(t *testing.T) {
 	mt.Run("mongo fatal error", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		item, errorFind := mongo.FindOne(RandId())
 
 		assert.NotNil(t, errorFind)
@@ -151,7 +158,7 @@ func TestFindOne(t *testing.T) {
 			{"lastname", dummyItem.LastName},
 		}))
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		item, errorFind := mongo.FindOne(RandId())
 
 		assert.NotNil(t, item)
@@ -175,7 +182,7 @@ func TestFindOne(t *testing.T) {
 			{"lastname", dummyItem.LastName},
 		}))
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		item, errorFind := mongo.FindOne(RandId())
 
 		assert.NotNil(t, item)
@@ -193,7 +200,7 @@ func TestFindOne(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 
-	dummyItem := Student{
+	dummyItem := TestStructMongo{
 		FirstName: "Walter",
 		LastName:  "White",
 	}
@@ -203,7 +210,7 @@ func TestUpdate(t *testing.T) {
 	mt.Run("update success", func(mt *mtest.T) {
 		mt.AddMockResponses(mtest.CreateSuccessResponse())
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		errorUpdate := mongo.Update(dummyItem)
 
 		assert.Nil(t, errorUpdate)
@@ -211,7 +218,7 @@ func TestUpdate(t *testing.T) {
 	mt.Run("fatal error", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		errorUpdate := mongo.Update(dummyItem)
 
 		assert.NotNil(t, errorUpdate)
@@ -223,7 +230,7 @@ func TestUpdate(t *testing.T) {
 func TestDelete(t *testing.T) {
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 
-	dummyItem := Student{
+	dummyItem := TestStructMongo{
 		FirstName: "Walter",
 		LastName:  "White",
 	}
@@ -232,7 +239,7 @@ func TestDelete(t *testing.T) {
 	mt.Run("delete success", func(mt *mtest.T) {
 		mt.AddMockResponses(mtest.CreateSuccessResponse())
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		errorUpdate := mongo.Delete(dummyItem)
 
 		assert.Nil(t, errorUpdate)
@@ -240,7 +247,7 @@ func TestDelete(t *testing.T) {
 	mt.Run("fatal error", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		errorUpdate := mongo.Delete(dummyItem)
 
 		assert.NotNil(t, errorUpdate)
@@ -252,25 +259,25 @@ func TestDelete(t *testing.T) {
 func TestFindMany(t *testing.T) {
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 
-	dummyItem1 := Student{
+	dummyItem1 := TestStructMongo{
 		FirstName: "Fernando",
 		LastName:  "Linblad",
 	}
 	dummyItem1 = NewMongoItem(dummyItem1)
 
-	dummyItem2 := Student{
+	dummyItem2 := TestStructMongo{
 		FirstName: "Alice",
 		LastName:  "Johnson",
 	}
 	dummyItem2 = NewMongoItem(dummyItem2)
 
-	dummyItem3 := Student{
+	dummyItem3 := TestStructMongo{
 		FirstName: "Michael",
 		LastName:  "Smith",
 	}
 	dummyItem3 = NewMongoItem(dummyItem3)
 
-	dummyItem4 := Student{
+	dummyItem4 := TestStructMongo{
 		Item: &Item{
 			UUID:      uuid.New().String(),
 			RandId:    RandId(),
@@ -284,7 +291,7 @@ func TestFindMany(t *testing.T) {
 		LastName:  "Martinez",
 	}
 
-	dummyItem5 := Student{
+	dummyItem5 := TestStructMongo{
 		Item: &Item{
 			UUID:      uuid.New().String(),
 			RandId:    RandId(),
@@ -359,7 +366,7 @@ func TestFindMany(t *testing.T) {
 		findOptions.SetSort(bson.D{{"_id", -1}})
 		findOptions.SetLimit(10)
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		cursor, errorFindMany := mongo.FindMany(filter, findOptions)
 
 		assert.Nil(t, errorFindMany)
@@ -367,27 +374,27 @@ func TestFindMany(t *testing.T) {
 
 		defer cursor.Close(context.TODO())
 
-		var students []Student
+		var TestStructMongos []TestStructMongo
 		for cursor.Next(context.TODO()) {
-			var item Student
+			var item TestStructMongo
 
 			errorDecode := cursor.Decode(&item)
 			assert.Nil(t, errorDecode)
 
-			students = append(students, item)
+			TestStructMongos = append(TestStructMongos, item)
 		}
 
-		assert.Equal(t, 5, len(students))
-		assert.Equal(t, students[0].FirstName, dummyItem1.FirstName)
-		assert.Equal(t, students[0].LastName, dummyItem1.LastName)
-		assert.Equal(t, students[1].FirstName, dummyItem2.FirstName)
-		assert.Equal(t, students[1].LastName, dummyItem2.LastName)
-		assert.Equal(t, students[2].FirstName, dummyItem3.FirstName)
-		assert.Equal(t, students[2].LastName, dummyItem3.LastName)
-		assert.Equal(t, students[3].FirstName, dummyItem4.FirstName)
-		assert.Equal(t, students[3].LastName, dummyItem4.LastName)
-		assert.Equal(t, students[4].FirstName, dummyItem5.FirstName)
-		assert.Equal(t, students[4].LastName, dummyItem5.LastName)
+		assert.Equal(t, 5, len(TestStructMongos))
+		assert.Equal(t, TestStructMongos[0].FirstName, dummyItem1.FirstName)
+		assert.Equal(t, TestStructMongos[0].LastName, dummyItem1.LastName)
+		assert.Equal(t, TestStructMongos[1].FirstName, dummyItem2.FirstName)
+		assert.Equal(t, TestStructMongos[1].LastName, dummyItem2.LastName)
+		assert.Equal(t, TestStructMongos[2].FirstName, dummyItem3.FirstName)
+		assert.Equal(t, TestStructMongos[2].LastName, dummyItem3.LastName)
+		assert.Equal(t, TestStructMongos[3].FirstName, dummyItem4.FirstName)
+		assert.Equal(t, TestStructMongos[3].LastName, dummyItem4.LastName)
+		assert.Equal(t, TestStructMongos[4].FirstName, dummyItem5.FirstName)
+		assert.Equal(t, TestStructMongos[4].LastName, dummyItem5.LastName)
 	})
 	mt.Run("fatal error", func(mt *mtest.T) {
 		mt.AddMockResponses(bson.D{{"ok", 0}})
@@ -397,7 +404,7 @@ func TestFindMany(t *testing.T) {
 		findOptions.SetSort(bson.D{{"_id", -1}})
 		findOptions.SetLimit(10)
 
-		mongo := Mongo[Student](logger, mt.Coll)
+		mongo := Mongo[TestStructMongo](logger, mt.Coll)
 		items, errorUpdate := mongo.FindMany(filter, findOptions)
 
 		assert.NotNil(t, errorUpdate)

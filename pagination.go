@@ -141,8 +141,19 @@ func (pg *PaginationType[T]) UpdateItem(item T) *commonlogger.CommonError {
 }
 
 func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlogger.CommonError {
-
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
+
+	if pg.mongo != nil {
+		err := pg.mongo.Delete(item)
+		if err != nil {
+			return err
+		}
+	}
+
+	errorDelete := pg.itemCache.Del(item)
+	if errorDelete != nil {
+		return errorDelete
+	}
 
 	totalItem := pg.redisClient.ZCard(
 		context.TODO(),
@@ -176,18 +187,7 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlo
 		}
 	}
 
-	errorDelete := pg.itemCache.Del(item)
-	if errorDelete != nil {
-		return errorDelete
-	}
-
-	if pg.mongo != nil {
-		err := pg.mongo.Delete(item)
-		if err != nil {
-			return err
-		}
-	}
-
+	// will not return an error if the ZRem, Del, or Delete command results in zero deletions.
 	return nil
 }
 
