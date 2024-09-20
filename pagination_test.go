@@ -736,6 +736,9 @@ func TestSeedLinked(t *testing.T) {
 
 	t.Run("succesfully seed documents", func(t *testing.T) {
 
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
 	})
 }
 

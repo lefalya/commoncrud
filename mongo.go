@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lefalya/commoncrud/interfaces"
+	"github.com/lefalya/commoncrud/schema"
 	"github.com/lefalya/commonlogger"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -25,7 +26,17 @@ func Mongo[T interfaces.MongoItem](logger *slog.Logger, collection *mongo.Collec
 	}
 }
 
-func (mo *MongoType[T]) Create(item T) *commonlogger.CommonError {
+func bsonDToString(document bson.D) (string, error) {
+	// Convert bson.D to extended JSON
+	jsonData, err := bson.MarshalExtJSON(document, true, true)
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonData), nil
+}
+
+func (mo *MongoType[T]) Create(item T) *schema.InternalError {
 	createdAtStr := item.GetCreatedAt().Format(FORMATTED_TIME)
 	updatedAtStr := item.GetUpdatedAt().Format(FORMATTED_TIME)
 
@@ -56,19 +67,17 @@ func (mo *MongoType[T]) Create(item T) *commonlogger.CommonError {
 				}
 			}
 		}
-		return ItemLogHelper(
-			mo.logger,
-			MONGO_FATAL_ERROR,
-			errorCreate.Error(),
-			"create.mongo_fatal_error",
-			item,
-		)
+
+		return &schema.InternalError{
+			Err:     MONGO_FATAL_ERROR,
+			Details: errorCreate.Error(),
+		}
 	}
 
 	return nil
 }
 
-func (mo *MongoType[T]) FindOne(randId string) (T, *commonlogger.CommonError) {
+func (mo *MongoType[T]) FindOne(randId string) (T, *schema.InternalError) {
 	var nilItem T
 	var item T
 	filter := bson.D{{"item.randid", randId}}
@@ -82,22 +91,16 @@ func (mo *MongoType[T]) FindOne(randId string) (T, *commonlogger.CommonError) {
 	findError := findOneRes.Decode(&item)
 	if findError != nil {
 		if findError == mongo.ErrNoDocuments {
-			return nilItem, commonlogger.LogError(
-				mo.logger,
-				DOCUMENT_NOT_FOUND,
-				"document not found!",
-				"find.document_not_found",
-				"randId", randId,
-			)
+			return nilItem, &schema.InternalError{
+				Err:     DOCUMENT_NOT_FOUND,
+				Details: "item not found!",
+			}
 		}
 
-		return nilItem, commonlogger.LogError(
-			mo.logger,
-			MONGO_FATAL_ERROR,
-			findError.Error(),
-			"find.mongodb_fatal_error",
-			"randId", randId,
-		)
+		return nilItem, &schema.InternalError{
+			Err:     MONGO_FATAL_ERROR,
+			Details: findError.Error(),
+		}
 	}
 
 	parsedTime, errorParse := time.Parse(FORMATTED_TIME, item.GetCreatedAtString())
@@ -113,7 +116,15 @@ func (mo *MongoType[T]) FindOne(randId string) (T, *commonlogger.CommonError) {
 	return item, nil
 }
 
-func (mo *MongoType[T]) FindMany(filter bson.D, findOptions *options.FindOptions) (*mongo.Cursor, *commonlogger.CommonError) {
+func (mo *MongoType[T]) FindMany(
+	filter bson.D,
+	findOptions *options.FindOptions,
+	pagination interfaces.Pagination[T],
+	paginationParameters []string,
+	processor interfaces.SeedProcessor[T],
+	processorArgs ...interface{},
+) ([]T, *schema.InternalError) {
+	var results []T
 
 	cursor, errorFindItems := mo.collection.Find(
 		context.TODO(),
@@ -122,18 +133,61 @@ func (mo *MongoType[T]) FindMany(filter bson.D, findOptions *options.FindOptions
 	)
 
 	if errorFindItems != nil {
-		return nil, commonlogger.LogError(
-			mo.logger,
-			MONGO_FATAL_ERROR,
-			errorFindItems.Error(),
-			"findmany.find_mongodb_fatal_error",
-		)
+		return nil, &schema.InternalError{
+			Err:     MONGO_FATAL_ERROR,
+			Details: errorFindItems.Error(),
+		}
 	}
 
-	return cursor, nil
+	defer cursor.Close(context.TODO())
+
+	for cursor.Next(context.TODO()) {
+		var item T
+
+		errorDecode := cursor.Decode(&item)
+		if errorDecode != nil {
+			filterAsString, err := bsonDToString(filter)
+			if err != nil {
+				filterAsString = ""
+			}
+
+			commonlogger.LogError(
+				mo.logger,
+				FAILED_DECODE,
+				errorDecode.Error(),
+				"findMany.failed_decode",
+				"filter", filterAsString,
+			)
+
+			continue
+		}
+
+		parsedTime, errorParse := time.Parse(FORMATTED_TIME, item.GetCreatedAtString())
+		if errorParse == nil {
+			item.SetCreatedAt(parsedTime)
+		}
+
+		parsedTime, errorParse = time.Parse(FORMATTED_TIME, item.GetUpdatedAtString())
+		if errorParse == nil {
+			item.SetUpdatedAt(parsedTime)
+		}
+
+		pagination.AddItem(paginationParameters, item)
+
+		// During the seeding process, the processor functions solely as an item modifier/processor.
+		// In contrast, during the fetching process, the processor also evaluates whether
+		// each item meets the criteria to be included in the results.
+		if processor != nil {
+			processor(&item, processorArgs...)
+		}
+
+		results = append(results, item)
+	}
+
+	return results, nil
 }
 
-func (mo *MongoType[T]) Update(item T) *commonlogger.CommonError {
+func (mo *MongoType[T]) Update(item T) *schema.InternalError {
 	filter := bson.D{{"uuid", item.GetUUID()}}
 
 	_, errorUpdate := mo.collection.UpdateOne(
@@ -146,19 +200,16 @@ func (mo *MongoType[T]) Update(item T) *commonlogger.CommonError {
 	)
 
 	if errorUpdate != nil {
-		return ItemLogHelper(
-			mo.logger,
-			MONGO_FATAL_ERROR,
-			errorUpdate.Error(),
-			"update.mongodb_fatal_error",
-			item,
-		)
+		return &schema.InternalError{
+			Err:     MONGO_FATAL_ERROR,
+			Details: errorUpdate.Error(),
+		}
 	}
 
 	return nil
 }
 
-func (mo *MongoType[T]) Delete(item T) *commonlogger.CommonError {
+func (mo *MongoType[T]) Delete(item T) *schema.InternalError {
 	filter := bson.D{{"uuid", item.GetUUID()}}
 
 	_, errorDelete := mo.collection.DeleteOne(
@@ -167,13 +218,10 @@ func (mo *MongoType[T]) Delete(item T) *commonlogger.CommonError {
 	)
 
 	if errorDelete != nil {
-		return ItemLogHelper(
-			mo.logger,
-			MONGO_FATAL_ERROR,
-			errorDelete.Error(),
-			"delete.mongodb_fatal_error",
-			item,
-		)
+		return &schema.InternalError{
+			Err:     MONGO_FATAL_ERROR,
+			Details: errorDelete.Error(),
+		}
 	}
 
 	return nil

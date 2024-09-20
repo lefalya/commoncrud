@@ -3,10 +3,10 @@ package interfaces
 import (
 	"time"
 
+	"github.com/lefalya/commoncrud/schema"
 	"github.com/lefalya/commonlogger"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -70,11 +70,18 @@ type ItemCache[T Item] interface {
 }
 
 type Mongo[T Item] interface {
-	Create(item T) *commonlogger.CommonError
-	FindOne(randId string) (T, *commonlogger.CommonError)
-	FindMany(filter bson.D, findOptions *options.FindOptions) (*mongo.Cursor, *commonlogger.CommonError)
-	Update(item T) *commonlogger.CommonError
-	Delete(item T) *commonlogger.CommonError
+	Create(item T) *schema.InternalError
+	FindOne(randId string) (T, *schema.InternalError)
+	FindMany(
+		filter bson.D,
+		findOptions *options.FindOptions,
+		pagination Pagination[T],
+		pagKeyParams []string,
+		seedProcessor SeedProcessor[T],
+		seedProcessorArgs ...interface{},
+	) ([]T, *schema.InternalError)
+	Update(item T) *schema.InternalError
+	Delete(item T) *schema.InternalError
 	SetPaginationFilter(filter bson.A)
 	GetPaginationFilter() bson.A
 }

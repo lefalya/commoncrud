@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/lefalya/commoncrud/interfaces"
 	"github.com/lefalya/commonlogger"
@@ -53,7 +52,14 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *commonlogge
 	if pg.mongo != nil {
 		err := pg.mongo.Create(item)
 		if err != nil {
-			return err
+			return ItemLogHelper(
+				pg.logger,
+				err.Err,
+				err.Details,
+				"additem.mongo_create_error",
+				item,
+				"pagKeyParams", strings.Join(pagKeyParams, ","),
+			)
 		}
 	}
 
@@ -128,7 +134,13 @@ func (pg *PaginationType[T]) UpdateItem(item T) *commonlogger.CommonError {
 	if pg.mongo != nil {
 		err := pg.mongo.Update(item)
 		if err != nil {
-			return err
+			return ItemLogHelper(
+				pg.logger,
+				err.Err,
+				err.Details,
+				"updateitem.mongo_update_error",
+				item,
+			)
 		}
 	}
 
@@ -146,7 +158,13 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlo
 	if pg.mongo != nil {
 		err := pg.mongo.Delete(item)
 		if err != nil {
-			return err
+			return ItemLogHelper(
+				pg.logger,
+				err.Err,
+				err.Details,
+				"removeitem.mongo_delete_error",
+				item,
+			)
 		}
 	}
 
@@ -389,7 +407,13 @@ func (pg *PaginationType[T]) SeedOne(randId string) (*T, *commonlogger.CommonErr
 	if pg.mongo != nil {
 		item, errorFind := pg.mongo.FindOne(randId)
 		if errorFind != nil {
-			return nil, errorFind
+			return nil, ItemLogHelper(
+				pg.logger,
+				errorFind.Err,
+				errorFind.Details,
+				"seedone.mongo_findone_error",
+				item,
+			)
 		}
 		result = item
 	} else {
@@ -464,53 +488,25 @@ func (pg *PaginationType[T]) SeedLinked(
 		findOptions.SetSort(bson.D{{"_id", -1}})
 		findOptions.SetLimit(itemPerPage)
 
-		cursor, errorFindItems := pg.mongo.FindMany(
+		items, errorFindItems := pg.mongo.FindMany(
 			filter,
 			findOptions,
+			pg,
+			paginationKeyParameters,
+			processor,
+			processorArgs...,
 		)
 
 		if errorFindItems != nil {
-			return nil, errorFindItems
+			return nil, commonlogger.LogError(
+				pg.logger,
+				errorFindItems.Err,
+				errorFindItems.Details,
+				"seedlinked.findmany_error",
+			)
 		}
-		defer cursor.Close(context.TODO())
 
-		for cursor.Next(context.TODO()) {
-			var item T
-
-			errorDecode := cursor.Decode(&item)
-			if errorDecode != nil {
-				commonlogger.LogError(
-					pg.logger,
-					FAILED_DECODE,
-					errorDecode.Error(),
-					"seedlinkedpagination.failed_decode",
-					errorArgs...,
-				)
-
-				continue
-			}
-
-			parsedTime, errorParse := time.Parse(FORMATTED_TIME, item.GetCreatedAtString())
-			if errorParse == nil {
-				item.SetCreatedAt(parsedTime)
-			}
-
-			parsedTime, errorParse = time.Parse(FORMATTED_TIME, item.GetUpdatedAtString())
-			if errorParse == nil {
-				item.SetUpdatedAt(parsedTime)
-			}
-
-			// During the seeding process, the processor functions solely as an item modifier/processor.
-			// In contrast, during the fetching process, the processor also evaluates whether
-			// each item meets the criteria to be included in the results.
-			if processor != nil {
-				processor(&item, processorArgs...)
-			}
-
-			pg.AddItem(paginationKeyParameters, item)
-
-			result = append(result, item)
-		}
+		result = items
 	} else {
 		return nil, commonlogger.LogError(
 			pg.logger,
@@ -531,7 +527,7 @@ func (pg *PaginationType[T]) SeedAll(
 ) ([]T, *commonlogger.CommonError) {
 	errorArgs := []string{}
 
-	var result []T
+	var results []T
 	var filter bson.D
 
 	if pg.mongo != nil {
@@ -545,51 +541,32 @@ func (pg *PaginationType[T]) SeedAll(
 		cursor, errorFindItems := pg.mongo.FindMany(
 			filter,
 			findOptions,
+			pg,
+			paginationKeyParameters,
+			processor,
+			processorArgs...,
 		)
 
 		if errorFindItems != nil {
-			return nil, errorFindItems
+			return nil, commonlogger.LogError(
+				pg.logger,
+				errorFindItems.Err,
+				errorFindItems.Details,
+				"seedall.findmany_error",
+				errorArgs...,
+			)
 		}
-		defer cursor.Close(context.TODO())
 
-		for cursor.Next(context.TODO()) {
-			var item T
-
-			errorDecode := cursor.Decode(&item)
-			if errorDecode != nil {
-				commonlogger.LogError(
-					pg.logger,
-					FAILED_DECODE,
-					errorDecode.Error(),
-					"seedall.failed_decode",
-					errorArgs...,
-				)
-
-				continue
-			}
-
-			parsedTime, errorParse := time.Parse(FORMATTED_TIME, item.GetCreatedAtString())
-			if errorParse == nil {
-				item.SetCreatedAt(parsedTime)
-			}
-
-			parsedTime, errorParse = time.Parse(FORMATTED_TIME, item.GetUpdatedAtString())
-			if errorParse == nil {
-				item.SetUpdatedAt(parsedTime)
-			}
-
-			// During the seeding process, the processor functions solely as an item modifier/processor.
-			// In contrast, during the fetching process, the processor also evaluates whether
-			// each item meets the criteria to be included in the results.
-			if processor != nil {
-				processor(&item, processorArgs...)
-			}
-
-			pg.AddItem(paginationKeyParameters, item)
-
-			result = append(result, item)
-		}
+		results = cursor
+	} else {
+		return nil, commonlogger.LogError(
+			pg.logger,
+			NO_DATABASE_CONFIGURED,
+			"",
+			"seedpartial.no_database_configured",
+			errorArgs...,
+		)
 	}
 
-	return result, nil
+	return results, nil
 }
