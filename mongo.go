@@ -6,8 +6,7 @@ import (
 	"time"
 
 	"github.com/lefalya/commoncrud/interfaces"
-	"github.com/lefalya/commoncrud/schema"
-	"github.com/lefalya/commonlogger"
+	"github.com/lefalya/commoncrud/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -36,7 +35,7 @@ func bsonDToString(document bson.D) (string, error) {
 	return string(jsonData), nil
 }
 
-func (mo *MongoType[T]) Create(item T) *schema.InternalError {
+func (mo *MongoType[T]) Create(item T) *types.PaginationError {
 	createdAtStr := item.GetCreatedAt().Format(FORMATTED_TIME)
 	updatedAtStr := item.GetUpdatedAt().Format(FORMATTED_TIME)
 
@@ -50,14 +49,6 @@ func (mo *MongoType[T]) Create(item T) *schema.InternalError {
 
 	if errorCreate != nil {
 		if writeException, ok := errorCreate.(mongo.WriteException); ok {
-			ItemLogHelper(
-				mo.logger,
-				DUPLICATE_RANDID,
-				errorCreate.Error(),
-				"create.duplicate_randid",
-				item,
-			)
-
 			for _, werror := range writeException.WriteErrors {
 				if werror.Code == MONGO_DUPLICATE_ERROR_CODE {
 					item.SetRandId()
@@ -68,7 +59,7 @@ func (mo *MongoType[T]) Create(item T) *schema.InternalError {
 			}
 		}
 
-		return &schema.InternalError{
+		return &types.PaginationError{
 			Err:     MONGO_FATAL_ERROR,
 			Details: errorCreate.Error(),
 		}
@@ -77,7 +68,7 @@ func (mo *MongoType[T]) Create(item T) *schema.InternalError {
 	return nil
 }
 
-func (mo *MongoType[T]) FindOne(randId string) (T, *schema.InternalError) {
+func (mo *MongoType[T]) FindOne(randId string) (T, *types.PaginationError) {
 	var nilItem T
 	var item T
 	filter := bson.D{{"item.randid", randId}}
@@ -91,13 +82,13 @@ func (mo *MongoType[T]) FindOne(randId string) (T, *schema.InternalError) {
 	findError := findOneRes.Decode(&item)
 	if findError != nil {
 		if findError == mongo.ErrNoDocuments {
-			return nilItem, &schema.InternalError{
+			return nilItem, &types.PaginationError{
 				Err:     DOCUMENT_NOT_FOUND,
 				Details: "item not found!",
 			}
 		}
 
-		return nilItem, &schema.InternalError{
+		return nilItem, &types.PaginationError{
 			Err:     MONGO_FATAL_ERROR,
 			Details: findError.Error(),
 		}
@@ -122,7 +113,7 @@ func (mo *MongoType[T]) FindMany(
 	pagination interfaces.Pagination[T],
 	paginationParameters []string,
 	processor interfaces.SeedProcessor[T],
-) ([]T, *schema.InternalError) {
+) ([]T, *types.PaginationError) {
 	var results []T
 
 	cursor, errorFindItems := mo.collection.Find(
@@ -132,7 +123,7 @@ func (mo *MongoType[T]) FindMany(
 	)
 
 	if errorFindItems != nil {
-		return nil, &schema.InternalError{
+		return nil, &types.PaginationError{
 			Err:     MONGO_FATAL_ERROR,
 			Details: errorFindItems.Error(),
 		}
@@ -145,19 +136,6 @@ func (mo *MongoType[T]) FindMany(
 
 		errorDecode := cursor.Decode(&item)
 		if errorDecode != nil {
-			filterAsString, err := bsonDToString(filter)
-			if err != nil {
-				filterAsString = ""
-			}
-
-			commonlogger.LogError(
-				mo.logger,
-				FAILED_DECODE,
-				errorDecode.Error(),
-				"findMany.failed_decode",
-				"filter", filterAsString,
-			)
-
 			continue
 		}
 
@@ -186,7 +164,7 @@ func (mo *MongoType[T]) FindMany(
 	return results, nil
 }
 
-func (mo *MongoType[T]) Update(item T) *schema.InternalError {
+func (mo *MongoType[T]) Update(item T) *types.PaginationError {
 	filter := bson.D{{"uuid", item.GetUUID()}}
 
 	_, errorUpdate := mo.collection.UpdateOne(
@@ -199,7 +177,7 @@ func (mo *MongoType[T]) Update(item T) *schema.InternalError {
 	)
 
 	if errorUpdate != nil {
-		return &schema.InternalError{
+		return &types.PaginationError{
 			Err:     MONGO_FATAL_ERROR,
 			Details: errorUpdate.Error(),
 		}
@@ -208,7 +186,7 @@ func (mo *MongoType[T]) Update(item T) *schema.InternalError {
 	return nil
 }
 
-func (mo *MongoType[T]) Delete(item T) *schema.InternalError {
+func (mo *MongoType[T]) Delete(item T) *types.PaginationError {
 	filter := bson.D{{"uuid", item.GetUUID()}}
 
 	_, errorDelete := mo.collection.DeleteOne(
@@ -217,7 +195,7 @@ func (mo *MongoType[T]) Delete(item T) *schema.InternalError {
 	)
 
 	if errorDelete != nil {
-		return &schema.InternalError{
+		return &types.PaginationError{
 			Err:     MONGO_FATAL_ERROR,
 			Details: errorDelete.Error(),
 		}

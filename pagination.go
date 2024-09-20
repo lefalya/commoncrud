@@ -4,10 +4,9 @@ import (
 	"context"
 	"log/slog"
 	"reflect"
-	"strings"
 
 	"github.com/lefalya/commoncrud/interfaces"
-	"github.com/lefalya/commonlogger"
+	"github.com/lefalya/commoncrud/types"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -48,18 +47,15 @@ func (pg *PaginationType[T]) WithMongo(mongo interfaces.Mongo[T], paginationFilt
 	pg.mongo.SetPaginationFilter(paginationFilter)
 }
 
-func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *commonlogger.CommonError {
+func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.PaginationError {
 	if pg.mongo != nil {
 		err := pg.mongo.Create(item)
 		if err != nil {
-			return ItemLogHelper(
-				pg.logger,
-				err.Err,
-				err.Details,
-				"additem.mongo_create_error",
-				item,
-				"pagKeyParams", strings.Join(pagKeyParams, ","),
-			)
+			return &types.PaginationError{
+				Err:     err.Err,
+				Details: err.Details,
+				Message: "Failed to create item to MongoDB",
+			}
 		}
 	}
 
@@ -70,21 +66,22 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *commonlogge
 		key,
 	)
 	if totalItem.Err() != nil {
-		return ItemLogHelper(
-			pg.logger,
-			REDIS_FATAL_ERROR,
-			totalItem.Err().Error(),
-			"additem.zcard_redis_fatal_error",
-			item,
-			"pagKeyParams", strings.Join(pagKeyParams, ", "),
-		)
+		return &types.PaginationError{
+			Err:     REDIS_FATAL_ERROR,
+			Details: totalItem.Err().Error(),
+			Message: "Failed to count total items on Redis",
+		}
 	}
 
 	// only add item to sorted set, if the sorted set exists
 	if totalItem.Val() > 0 {
 		errorSet := pg.itemCache.Set(item)
 		if errorSet != nil {
-			return errorSet
+			return &types.PaginationError{
+				Err:     errorSet.Err,
+				Details: errorSet.Details,
+				Message: "Failed to set item to Redis",
+			}
 		}
 
 		sortedSetMember := redis.Z{
@@ -99,14 +96,11 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *commonlogge
 		)
 
 		if setSortedSet.Err() != nil {
-			return ItemLogHelper(
-				pg.logger,
-				REDIS_FATAL_ERROR,
-				setSortedSet.Err().Error(),
-				"additem.zadd_redis_fatal_error",
-				item,
-				"pagKeyParams", strings.Join(pagKeyParams, ", "),
-			)
+			return &types.PaginationError{
+				Err:     REDIS_FATAL_ERROR,
+				Details: setSortedSet.Err().Error(),
+				Message: "Failed to add item to pagination set on Redis",
+			}
 		}
 
 		setExpire := pg.redisClient.Expire(
@@ -116,31 +110,26 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *commonlogge
 		)
 
 		if setExpire.Err() != nil {
-			return ItemLogHelper(
-				pg.logger,
-				REDIS_FATAL_ERROR,
-				setExpire.Err().Error(),
-				"additem.setexpire_redis_fatal_error",
-				item,
-				"pagKeyParams", strings.Join(pagKeyParams, ", "),
-			)
+			return &types.PaginationError{
+				Err:     REDIS_FATAL_ERROR,
+				Details: setExpire.Err().Error(),
+				Message: "Failed to extend pagination set expiration on Redis",
+			}
 		}
 	}
 
 	return nil
 }
 
-func (pg *PaginationType[T]) UpdateItem(item T) *commonlogger.CommonError {
+func (pg *PaginationType[T]) UpdateItem(item T) *types.PaginationError {
 	if pg.mongo != nil {
 		err := pg.mongo.Update(item)
 		if err != nil {
-			return ItemLogHelper(
-				pg.logger,
-				err.Err,
-				err.Details,
-				"updateitem.mongo_update_error",
-				item,
-			)
+			return &types.PaginationError{
+				Err:     err.Err,
+				Details: err.Details,
+				Message: "Failed to update item on MongoDB",
+			}
 		}
 	}
 
@@ -152,19 +141,17 @@ func (pg *PaginationType[T]) UpdateItem(item T) *commonlogger.CommonError {
 	return nil
 }
 
-func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlogger.CommonError {
+func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.PaginationError {
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
 	if pg.mongo != nil {
 		err := pg.mongo.Delete(item)
 		if err != nil {
-			return ItemLogHelper(
-				pg.logger,
-				err.Err,
-				err.Details,
-				"removeitem.mongo_delete_error",
-				item,
-			)
+			return &types.PaginationError{
+				Err:     err.Err,
+				Details: err.Details,
+				Message: "Failed to delete item from MongoDB",
+			}
 		}
 	}
 
@@ -178,14 +165,11 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlo
 		key,
 	)
 	if totalItem.Err() != nil {
-		return ItemLogHelper(
-			pg.logger,
-			REDIS_FATAL_ERROR,
-			totalItem.Err().Error(),
-			"removeitem.zcard_redis_fatal_error",
-			item,
-			"pagKeyParams", strings.Join(pagKeyParams, ", "),
-		)
+		return &types.PaginationError{
+			Err:     REDIS_FATAL_ERROR,
+			Details: totalItem.Err().Error(),
+			Message: "Failed to count total items on Redis",
+		}
 	}
 
 	// only remove item from sorted set, if the sorted set exists
@@ -193,15 +177,11 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlo
 		removeItemSortedSet := pg.redisClient.ZRem(context.TODO(), key, item.GetRandId())
 
 		if removeItemSortedSet.Err() != nil {
-			return ItemLogHelper(
-				pg.logger,
-				REDIS_FATAL_ERROR,
-				removeItemSortedSet.Err().Error(),
-				"removeitem.zrem_redis_fatal_error",
-				item,
-				"pagKeyFormat", pg.pagKeyFormat,
-				"pagKeyParams", strings.Join(pagKeyParams, ","),
-			)
+			return &types.PaginationError{
+				Err:     REDIS_FATAL_ERROR,
+				Details: removeItemSortedSet.Err().Error(),
+				Message: "Failed to remove item from pagination set on Redis",
+			}
 		}
 	}
 
@@ -209,7 +189,7 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *commonlo
 	return nil
 }
 
-func (pg *PaginationType[T]) TotalItemOnCache(pagKeyParams []string) *commonlogger.CommonError {
+func (pg *PaginationType[T]) TotalItemOnCache(pagKeyParams []string) *types.PaginationError {
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
 	totalItem := pg.redisClient.ZCard(
@@ -218,20 +198,17 @@ func (pg *PaginationType[T]) TotalItemOnCache(pagKeyParams []string) *commonlogg
 	)
 
 	if totalItem.Err() != nil {
-		return commonlogger.LogError(
-			pg.logger,
-			REDIS_FATAL_ERROR,
-			totalItem.Err().Error(),
-			"totalitem.zcard_redis_fatal_error",
-			"pagKeyFormat", pg.pagKeyFormat,
-			"pagKeyParams", strings.Join(pagKeyParams, ","),
-		)
+		return &types.PaginationError{
+			Err:     REDIS_FATAL_ERROR,
+			Details: totalItem.Err().Error(),
+			Message: "Failed to count total items on Redis",
+		}
 	}
 
 	return nil
 }
 
-func (pg *PaginationType[T]) FetchOne(randId string) (*T, *commonlogger.CommonError) {
+func (pg *PaginationType[T]) FetchOne(randId string) (*T, *types.PaginationError) {
 	item, errorGet := pg.itemCache.Get(randId)
 
 	if errorGet != nil {
@@ -245,25 +222,20 @@ func (pg *PaginationType[T]) FetchLinked(
 	pagKeyParams []string,
 	references []string,
 	itemPerPage int64,
-	processor interfaces.PaginationProcessor[T]) ([]T, *commonlogger.CommonError) {
+	processor interfaces.PaginationProcessor[T]) ([]T, *types.PaginationError) {
 	var items []T
 	var start int64
 	var stop int64
-
-	errorArgs := []string{"pagKeyParams", strings.Join(pagKeyParams, ","), "references", strings.Join(references, ",")}
 
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 	totalReferences := len(references)
 
 	if totalReferences > 0 {
 		if totalReferences > MAXIMUM_AMOUNT_REFERENCES {
-			return nil, commonlogger.LogError(
-				pg.logger,
-				TOO_MUCH_REFERENCES,
-				"too much references!",
-				"fetchlinked.too_much_references",
-				errorArgs...,
-			)
+			return nil, &types.PaginationError{
+				Err:     TOO_MUCH_REFERENCES,
+				Message: "Too much references!",
+			}
 		}
 
 		for i := len(references) - 1; i >= 0; i-- {
@@ -274,13 +246,11 @@ func (pg *PaginationType[T]) FetchLinked(
 					continue
 				}
 
-				return nil, commonlogger.LogError(
-					pg.logger,
-					REDIS_FATAL_ERROR,
-					rank.Err().Error(),
-					"fetchlinked.zrevrank_fatal_error",
-					errorArgs...,
-				)
+				return nil, &types.PaginationError{
+					Err:     REDIS_FATAL_ERROR,
+					Details: rank.Err().Error(),
+					Message: "Failed to get reference's index from pagination set on Redis",
+				}
 			}
 
 			start = rank.Val() + 1
@@ -288,13 +258,10 @@ func (pg *PaginationType[T]) FetchLinked(
 		}
 
 		if start == 0 {
-			return nil, commonlogger.LogError(
-				pg.logger,
-				NO_VALID_REFERENCES,
-				"no valid references found!",
-				"fetchlinked.no_valid_references",
-				errorArgs...,
-			)
+			return nil, &types.PaginationError{
+				Err:     NO_VALID_REFERENCES,
+				Message: "No references found from pagination set on Redis",
+			}
 		}
 	}
 
@@ -302,13 +269,11 @@ func (pg *PaginationType[T]) FetchLinked(
 
 	members := pg.redisClient.ZRevRange(context.TODO(), key, start, stop)
 	if members.Err() != nil {
-		return nil, commonlogger.LogError(
-			pg.logger,
-			REDIS_FATAL_ERROR,
-			members.Err().Error(),
-			"fetchlinked.zrevragne_fatal_error",
-			errorArgs...,
-		)
+		return nil, &types.PaginationError{
+			Err:     REDIS_FATAL_ERROR,
+			Details: members.Err().Error(),
+			Message: "Failed to get items from pagination set on Redis",
+		}
 	}
 
 	if len(members.Val()) > 0 {
@@ -317,22 +282,12 @@ func (pg *PaginationType[T]) FetchLinked(
 		for _, member := range members.Val() {
 			item, errorGetItem := pg.itemCache.Get(member)
 			if errorGetItem != nil && errorGetItem.Err == REDIS_FATAL_ERROR {
-				return nil, commonlogger.LogError(
-					pg.logger,
-					REDIS_FATAL_ERROR,
-					"redis fatal error while retrieving individual key",
-					"fetchlinked.get_item_fatal_error",
-					errorArgs...,
-				)
+				return nil, &types.PaginationError{
+					Err:     errorGetItem.Err,
+					Details: errorGetItem.Details,
+					Message: "Failed to get item details from Redis",
+				}
 			} else if errorGetItem != nil && errorGetItem.Err == KEY_NOT_FOUND {
-				commonlogger.LogError(
-					pg.logger,
-					KEY_NOT_FOUND,
-					"individual key not found!",
-					"fetchlinked.get_item_key_not_found",
-					errorArgs...,
-				)
-
 				continue
 			}
 
@@ -347,19 +302,17 @@ func (pg *PaginationType[T]) FetchLinked(
 	return items, nil
 }
 
-func (pg *PaginationType[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T]) ([]T, *commonlogger.CommonError) {
+func (pg *PaginationType[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T]) ([]T, *types.PaginationError) {
 	var items []T
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
 	members := pg.redisClient.ZRevRange(context.TODO(), key, 0, -1)
 	if members.Err() != nil {
-		return nil, commonlogger.LogError(
-			pg.logger,
-			REDIS_FATAL_ERROR,
-			members.Err().Error(),
-			"fetchall.zrevrange_fatal_error",
-			"pagKeyParams", strings.Join(pagKeyParams, ", "),
-		)
+		return nil, &types.PaginationError{
+			Err:     REDIS_FATAL_ERROR,
+			Details: members.Err().Error(),
+			Message: "Failed to get items from pagination set on Redis",
+		}
 	}
 
 	if len(members.Val()) > 0 {
@@ -368,22 +321,12 @@ func (pg *PaginationType[T]) FetchAll(pagKeyParams []string, processor interface
 		for _, member := range members.Val() {
 			item, errorGetItem := pg.itemCache.Get(member)
 			if errorGetItem != nil && errorGetItem.Err == REDIS_FATAL_ERROR {
-				return nil, commonlogger.LogError(
-					pg.logger,
-					REDIS_FATAL_ERROR,
-					"redis fatal error while retrieving individual key",
-					"fetchall.get_item_fatal_error",
-					"pagKeyParams", strings.Join(pagKeyParams, ", "),
-				)
+				return nil, &types.PaginationError{
+					Err:     errorGetItem.Err,
+					Details: errorGetItem.Details,
+					Message: "Failed to get item details from Redis",
+				}
 			} else if errorGetItem != nil && errorGetItem.Err == KEY_NOT_FOUND {
-				commonlogger.LogError(
-					pg.logger,
-					KEY_NOT_FOUND,
-					"individual key not found!",
-					"fetchall.get_item_key_not_found",
-					"pagKeyParams", strings.Join(pagKeyParams, ", "),
-				)
-
 				continue
 			}
 
@@ -398,28 +341,32 @@ func (pg *PaginationType[T]) FetchAll(pagKeyParams []string, processor interface
 	return items, nil
 }
 
-func (pg *PaginationType[T]) SeedOne(randId string) (*T, *commonlogger.CommonError) {
+func (pg *PaginationType[T]) SeedOne(randId string) (*T, *types.PaginationError) {
 	var result T
 	if pg.mongo != nil {
 		item, errorFind := pg.mongo.FindOne(randId)
 		if errorFind != nil {
-			return nil, ItemLogHelper(
-				pg.logger,
-				errorFind.Err,
-				errorFind.Details,
-				"seedone.mongo_findone_error",
-				item,
-			)
+			if errorFind.Err == MONGO_FATAL_ERROR {
+				return nil, &types.PaginationError{
+					Err:     errorFind.Err,
+					Details: errorFind.Details,
+					Message: "Item not found on MongoDB",
+				}
+			} else {
+				// MONGO_FATAL_ERROR
+				return nil, &types.PaginationError{
+					Err:     errorFind.Err,
+					Details: errorFind.Details,
+					Message: "Fatal error from MongoDB while finding item",
+				}
+			}
 		}
 		result = item
 	} else {
-		return nil, commonlogger.LogError(
-			pg.logger,
-			NO_DATABASE_CONFIGURED,
-			"",
-			"seedone.no_database_configured",
-			"randId", randId,
-		)
+		return nil, &types.PaginationError{
+			Err:     NO_DATABASE_CONFIGURED,
+			Message: "No database configured",
+		}
 	}
 
 	return &result, nil
@@ -427,27 +374,22 @@ func (pg *PaginationType[T]) SeedOne(randId string) (*T, *commonlogger.CommonErr
 
 func (pg *PaginationType[T]) SeedLinked(
 	paginationKeyParameters []string,
-	lastItem T,
+	reference T,
 	itemPerPage int64,
 	processor interfaces.SeedProcessor[T],
-) ([]T, *commonlogger.CommonError) {
-	errorArgs := []string{}
-
+) ([]T, *types.PaginationError) {
 	var result []T
 	var filter bson.D
 
 	if pg.mongo != nil {
-		if !reflect.ValueOf(lastItem).IsZero() {
-			inMongoItem, ok := any(lastItem).(interfaces.MongoItem)
+		if !reflect.ValueOf(reference).IsZero() {
+			inMongoItem, ok := any(reference).(interfaces.MongoItem)
 			if !ok {
 				// return lastItem must be in MongoItem
-				return nil, commonlogger.LogError(
-					pg.logger,
-					LASTITEM_MUST_MONGOITEM,
-					"invalid item, not in MongoItem type",
-					"seedpartial.lastitem_must_mongoitem",
-					errorArgs...,
-				)
+				return nil, &types.PaginationError{
+					Err:     LASTITEM_MUST_MONGOITEM,
+					Message: "Using MongoDB as database but the reference is not in MongoItem",
+				}
 			}
 
 			filter = bson.D{
@@ -492,23 +434,19 @@ func (pg *PaginationType[T]) SeedLinked(
 		)
 
 		if errorFindItems != nil {
-			return nil, commonlogger.LogError(
-				pg.logger,
-				errorFindItems.Err,
-				errorFindItems.Details,
-				"seedlinked.findmany_error",
-			)
+			return nil, &types.PaginationError{
+				Err:     errorFindItems.Err,
+				Details: errorFindItems.Details,
+				Message: "MongoDB fatal error while retrieving items",
+			}
 		}
 
 		result = items
 	} else {
-		return nil, commonlogger.LogError(
-			pg.logger,
-			NO_DATABASE_CONFIGURED,
-			"",
-			"seedpartial.no_database_configured",
-			errorArgs...,
-		)
+		return nil, &types.PaginationError{
+			Err:     NO_DATABASE_CONFIGURED,
+			Message: "No database configured",
+		}
 	}
 
 	return result, nil
@@ -517,9 +455,7 @@ func (pg *PaginationType[T]) SeedLinked(
 func (pg *PaginationType[T]) SeedAll(
 	paginationKeyParameters []string,
 	processor interfaces.SeedProcessor[T],
-) ([]T, *commonlogger.CommonError) {
-	errorArgs := []string{}
-
+) ([]T, *types.PaginationError) {
 	var results []T
 	var filter bson.D
 
@@ -540,24 +476,19 @@ func (pg *PaginationType[T]) SeedAll(
 		)
 
 		if errorFindItems != nil {
-			return nil, commonlogger.LogError(
-				pg.logger,
-				errorFindItems.Err,
-				errorFindItems.Details,
-				"seedall.findmany_error",
-				errorArgs...,
-			)
+			return nil, &types.PaginationError{
+				Err:     errorFindItems.Err,
+				Details: errorFindItems.Details,
+				Message: "MongoDB fatal error while retrieving items",
+			}
 		}
 
 		results = cursor
 	} else {
-		return nil, commonlogger.LogError(
-			pg.logger,
-			NO_DATABASE_CONFIGURED,
-			"",
-			"seedpartial.no_database_configured",
-			errorArgs...,
-		)
+		return nil, &types.PaginationError{
+			Err:     NO_DATABASE_CONFIGURED,
+			Message: "No database configured",
+		}
 	}
 
 	return results, nil

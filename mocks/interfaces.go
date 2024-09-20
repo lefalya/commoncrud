@@ -10,8 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	interfaces "github.com/lefalya/commoncrud/interfaces"
-	schema "github.com/lefalya/commoncrud/schema"
-	commonlogger "github.com/lefalya/commonlogger"
+	types "github.com/lefalya/commoncrud/types"
 	bson "go.mongodb.org/mongo-driver/bson"
 	primitive "go.mongodb.org/mongo-driver/bson/primitive"
 	options "go.mongodb.org/mongo-driver/mongo/options"
@@ -425,10 +424,10 @@ func (m *MockPagination[T]) EXPECT() *MockPaginationMockRecorder[T] {
 }
 
 // AddItem mocks base method.
-func (m *MockPagination[T]) AddItem(pagKeyParams []string, item T) *commonlogger.CommonError {
+func (m *MockPagination[T]) AddItem(pagKeyParams []string, item T) *types.PaginationError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddItem", pagKeyParams, item)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
+	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
@@ -439,11 +438,11 @@ func (mr *MockPaginationMockRecorder[T]) AddItem(pagKeyParams, item interface{})
 }
 
 // FetchAll mocks base method.
-func (m *MockPagination[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T]) ([]T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T]) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FetchAll", pagKeyParams, processor)
 	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
+	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
@@ -454,11 +453,11 @@ func (mr *MockPaginationMockRecorder[T]) FetchAll(pagKeyParams, processor interf
 }
 
 // FetchLinked mocks base method.
-func (m *MockPagination[T]) FetchLinked(pagKeyParams, references []string, itemPerPage int64, processor interfaces.PaginationProcessor[T]) ([]T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) FetchLinked(pagKeyParams, references []string, itemPerPage int64, processor interfaces.PaginationProcessor[T]) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FetchLinked", pagKeyParams, references, itemPerPage, processor)
 	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
+	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
@@ -469,11 +468,11 @@ func (mr *MockPaginationMockRecorder[T]) FetchLinked(pagKeyParams, references, i
 }
 
 // FetchOne mocks base method.
-func (m *MockPagination[T]) FetchOne(randId string) (*T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) FetchOne(randId string) (*T, *types.PaginationError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FetchOne", randId)
 	ret0, _ := ret[0].(*T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
+	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
@@ -484,10 +483,10 @@ func (mr *MockPaginationMockRecorder[T]) FetchOne(randId interface{}) *gomock.Ca
 }
 
 // RemoveItem mocks base method.
-func (m *MockPagination[T]) RemoveItem(pagKeyParams []string, item T) *commonlogger.CommonError {
+func (m *MockPagination[T]) RemoveItem(pagKeyParams []string, item T) *types.PaginationError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveItem", pagKeyParams, item)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
+	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
@@ -498,11 +497,11 @@ func (mr *MockPaginationMockRecorder[T]) RemoveItem(pagKeyParams, item interface
 }
 
 // SeedAll mocks base method.
-func (m *MockPagination[T]) SeedAll(paginationKeyParameters []string, processor interfaces.SeedProcessor[T]) ([]T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) SeedAll(paginationKeyParameters []string, processor interfaces.SeedProcessor[T]) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SeedAll", paginationKeyParameters, processor)
 	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
+	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
@@ -513,11 +512,11 @@ func (mr *MockPaginationMockRecorder[T]) SeedAll(paginationKeyParameters, proces
 }
 
 // SeedLinked mocks base method.
-func (m *MockPagination[T]) SeedLinked(paginationKeyParameters []string, lastItem T, itemPerPage int64, processor interfaces.SeedProcessor[T]) ([]T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) SeedLinked(paginationKeyParameters []string, lastItem T, itemPerPage int64, processor interfaces.SeedProcessor[T]) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SeedLinked", paginationKeyParameters, lastItem, itemPerPage, processor)
 	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
+	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
@@ -528,11 +527,11 @@ func (mr *MockPaginationMockRecorder[T]) SeedLinked(paginationKeyParameters, las
 }
 
 // SeedOne mocks base method.
-func (m *MockPagination[T]) SeedOne(randId string) (*T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) SeedOne(randId string) (*T, *types.PaginationError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SeedOne", randId)
 	ret0, _ := ret[0].(*T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
+	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
@@ -543,10 +542,10 @@ func (mr *MockPaginationMockRecorder[T]) SeedOne(randId interface{}) *gomock.Cal
 }
 
 // TotalItemOnCache mocks base method.
-func (m *MockPagination[T]) TotalItemOnCache(pagKeyParams []string) *commonlogger.CommonError {
+func (m *MockPagination[T]) TotalItemOnCache(pagKeyParams []string) *types.PaginationError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TotalItemOnCache", pagKeyParams)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
+	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
@@ -557,10 +556,10 @@ func (mr *MockPaginationMockRecorder[T]) TotalItemOnCache(pagKeyParams interface
 }
 
 // UpdateItem mocks base method.
-func (m *MockPagination[T]) UpdateItem(item T) *commonlogger.CommonError {
+func (m *MockPagination[T]) UpdateItem(item T) *types.PaginationError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateItem", item)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
+	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
@@ -606,10 +605,10 @@ func (m *MockItemCache[T]) EXPECT() *MockItemCacheMockRecorder[T] {
 }
 
 // Del mocks base method.
-func (m *MockItemCache[T]) Del(item T) *commonlogger.CommonError {
+func (m *MockItemCache[T]) Del(item T) *types.PaginationError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Del", item)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
+	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
@@ -620,11 +619,11 @@ func (mr *MockItemCacheMockRecorder[T]) Del(item interface{}) *gomock.Call {
 }
 
 // Get mocks base method.
-func (m *MockItemCache[T]) Get(randId string) (T, *commonlogger.CommonError) {
+func (m *MockItemCache[T]) Get(randId string) (T, *types.PaginationError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", randId)
 	ret0, _ := ret[0].(T)
-	ret1, _ := ret[1].(*commonlogger.CommonError)
+	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
@@ -635,10 +634,10 @@ func (mr *MockItemCacheMockRecorder[T]) Get(randId interface{}) *gomock.Call {
 }
 
 // Set mocks base method.
-func (m *MockItemCache[T]) Set(item T) *commonlogger.CommonError {
+func (m *MockItemCache[T]) Set(item T) *types.PaginationError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Set", item)
-	ret0, _ := ret[0].(*commonlogger.CommonError)
+	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
@@ -672,10 +671,10 @@ func (m *MockMongo[T]) EXPECT() *MockMongoMockRecorder[T] {
 }
 
 // Create mocks base method.
-func (m *MockMongo[T]) Create(item T) *schema.InternalError {
+func (m *MockMongo[T]) Create(item T) *types.PaginationError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", item)
-	ret0, _ := ret[0].(*schema.InternalError)
+	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
@@ -686,10 +685,10 @@ func (mr *MockMongoMockRecorder[T]) Create(item interface{}) *gomock.Call {
 }
 
 // Delete mocks base method.
-func (m *MockMongo[T]) Delete(item T) *schema.InternalError {
+func (m *MockMongo[T]) Delete(item T) *types.PaginationError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", item)
-	ret0, _ := ret[0].(*schema.InternalError)
+	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
@@ -700,11 +699,11 @@ func (mr *MockMongoMockRecorder[T]) Delete(item interface{}) *gomock.Call {
 }
 
 // FindMany mocks base method.
-func (m *MockMongo[T]) FindMany(filter bson.D, findOptions *options.FindOptions, pagination interfaces.Pagination[T], pagKeyParams []string, seedProcessor interfaces.SeedProcessor[T]) ([]T, *schema.InternalError) {
+func (m *MockMongo[T]) FindMany(filter bson.D, findOptions *options.FindOptions, pagination interfaces.Pagination[T], pagKeyParams []string, seedProcessor interfaces.SeedProcessor[T]) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindMany", filter, findOptions, pagination, pagKeyParams, seedProcessor)
 	ret0, _ := ret[0].([]T)
-	ret1, _ := ret[1].(*schema.InternalError)
+	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
@@ -715,11 +714,11 @@ func (mr *MockMongoMockRecorder[T]) FindMany(filter, findOptions, pagination, pa
 }
 
 // FindOne mocks base method.
-func (m *MockMongo[T]) FindOne(randId string) (T, *schema.InternalError) {
+func (m *MockMongo[T]) FindOne(randId string) (T, *types.PaginationError) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindOne", randId)
 	ret0, _ := ret[0].(T)
-	ret1, _ := ret[1].(*schema.InternalError)
+	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
@@ -756,10 +755,10 @@ func (mr *MockMongoMockRecorder[T]) SetPaginationFilter(filter interface{}) *gom
 }
 
 // Update mocks base method.
-func (m *MockMongo[T]) Update(item T) *schema.InternalError {
+func (m *MockMongo[T]) Update(item T) *types.PaginationError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", item)
-	ret0, _ := ret[0].(*schema.InternalError)
+	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 

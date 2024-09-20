@@ -3,8 +3,7 @@ package interfaces
 import (
 	"time"
 
-	"github.com/lefalya/commoncrud/schema"
-	"github.com/lefalya/commonlogger"
+	"github.com/lefalya/commoncrud/types"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -35,49 +34,49 @@ type MongoItem interface {
 // Functions only ask pagination key parameters.
 type Pagination[T Item] interface {
 	WithMongo(mongo Mongo[T], paginationFilter bson.A)
-	AddItem(pagKeyParams []string, item T) *commonlogger.CommonError
-	UpdateItem(item T) *commonlogger.CommonError
-	RemoveItem(pagKeyParams []string, item T) *commonlogger.CommonError
-	TotalItemOnCache(pagKeyParams []string) *commonlogger.CommonError
-	FetchOne(randId string) (*T, *commonlogger.CommonError)
+	AddItem(pagKeyParams []string, item T) *types.PaginationError
+	UpdateItem(item T) *types.PaginationError
+	RemoveItem(pagKeyParams []string, item T) *types.PaginationError
+	TotalItemOnCache(pagKeyParams []string) *types.PaginationError
+	FetchOne(randId string) (*T, *types.PaginationError)
 	FetchLinked(
 		pagKeyParams []string,
 		references []string,
 		itemPerPage int64,
 		processor PaginationProcessor[T],
-	) ([]T, *commonlogger.CommonError)
-	FetchAll(pagKeyParams []string, processor PaginationProcessor[T]) ([]T, *commonlogger.CommonError)
-	SeedOne(randId string) (*T, *commonlogger.CommonError)
+	) ([]T, *types.PaginationError)
+	FetchAll(pagKeyParams []string, processor PaginationProcessor[T]) ([]T, *types.PaginationError)
+	SeedOne(randId string) (*T, *types.PaginationError)
 	SeedLinked(
 		paginationKeyParameters []string,
 		lastItem T,
 		itemPerPage int64,
 		processor SeedProcessor[T],
-	) ([]T, *commonlogger.CommonError)
-	SeedAll(paginationKeyParameters []string, processor SeedProcessor[T]) ([]T, *commonlogger.CommonError)
+	) ([]T, *types.PaginationError)
+	SeedAll(paginationKeyParameters []string, processor SeedProcessor[T]) ([]T, *types.PaginationError)
 }
 
 type PaginationProcessor[T Item] func(item T, items *[]T)
 type SeedProcessor[T Item] func(item *T)
 
 type ItemCache[T Item] interface {
-	Get(randId string) (T, *commonlogger.CommonError)
-	Set(item T) *commonlogger.CommonError
-	Del(item T) *commonlogger.CommonError
+	Get(randId string) (T, *types.PaginationError)
+	Set(item T) *types.PaginationError
+	Del(item T) *types.PaginationError
 }
 
 type Mongo[T Item] interface {
-	Create(item T) *schema.InternalError
-	FindOne(randId string) (T, *schema.InternalError)
+	Create(item T) *types.PaginationError
+	FindOne(randId string) (T, *types.PaginationError)
 	FindMany(
 		filter bson.D,
 		findOptions *options.FindOptions,
 		pagination Pagination[T],
 		pagKeyParams []string,
 		seedProcessor SeedProcessor[T],
-	) ([]T, *schema.InternalError)
-	Update(item T) *schema.InternalError
-	Delete(item T) *schema.InternalError
+	) ([]T, *types.PaginationError)
+	Update(item T) *types.PaginationError
+	Delete(item T) *types.PaginationError
 	SetPaginationFilter(filter bson.A)
 	GetPaginationFilter() bson.A
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/lefalya/commoncrud/interfaces"
 	mock_interfaces "github.com/lefalya/commoncrud/mocks"
-	"github.com/lefalya/commonlogger"
+	"github.com/lefalya/commoncrud/types"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
@@ -211,7 +211,7 @@ func TestAddItem(t *testing.T) {
 		mongoMock.EXPECT().SetPaginationFilter(nil)
 
 		itemCacheMock := mock_interfaces.NewMockItemCache[Car](ctrl)
-		itemCacheMock.EXPECT().Set(car).Return(&commonlogger.CommonError{Err: REDIS_FATAL_ERROR})
+		itemCacheMock.EXPECT().Set(car).Return(&types.PaginationError{Err: REDIS_FATAL_ERROR})
 
 		redisDB, mockedRedis := redismock.NewClientMock()
 		mockedRedis.ExpectZCard(key).SetVal(3)
@@ -260,7 +260,6 @@ func TestAddItem(t *testing.T) {
 		errorAddItem := pagination.AddItem(paginationParameters, car)
 		assert.NotNil(t, errorAddItem)
 		assert.Equal(t, REDIS_FATAL_ERROR, errorAddItem.Err)
-		assert.Equal(t, "additem.zadd_redis_fatal_error", errorAddItem.Context)
 	})
 	t.Run("set expire fatal error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -293,7 +292,6 @@ func TestAddItem(t *testing.T) {
 		errorAddItem := pagination.AddItem(paginationParameters, car)
 		assert.NotNil(t, errorAddItem)
 		assert.Equal(t, REDIS_FATAL_ERROR, errorAddItem.Err)
-		assert.Equal(t, "additem.zadd_redis_fatal_error", errorAddItem.Context)
 	})
 	t.Run("mongo create error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -301,7 +299,7 @@ func TestAddItem(t *testing.T) {
 
 		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
 		mongoMock.EXPECT().SetPaginationFilter(nil)
-		mongoMock.EXPECT().Create(car).Return(&commonlogger.CommonError{Err: MONGO_FATAL_ERROR})
+		mongoMock.EXPECT().Create(car).Return(&types.PaginationError{Err: MONGO_FATAL_ERROR})
 
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,
@@ -366,7 +364,7 @@ func TestUpdateItem(t *testing.T) {
 
 		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
 		mongoMock.EXPECT().SetPaginationFilter(nil)
-		mongoMock.EXPECT().Update(car).Return(&commonlogger.CommonError{Err: MONGO_FATAL_ERROR})
+		mongoMock.EXPECT().Update(car).Return(&types.PaginationError{Err: MONGO_FATAL_ERROR})
 
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,
@@ -390,7 +388,7 @@ func TestUpdateItem(t *testing.T) {
 		mongoMock.EXPECT().Update(car).Return(nil)
 
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
-		itemCache.EXPECT().Set(car).Return(&commonlogger.CommonError{Err: REDIS_FATAL_ERROR})
+		itemCache.EXPECT().Set(car).Return(&types.PaginationError{Err: REDIS_FATAL_ERROR})
 
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,
@@ -504,7 +502,7 @@ func TestRemoveItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
-		itemCache.EXPECT().Del(car).Return(&commonlogger.CommonError{Err: REDIS_FATAL_ERROR})
+		itemCache.EXPECT().Del(car).Return(&types.PaginationError{Err: REDIS_FATAL_ERROR})
 
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,
@@ -524,7 +522,7 @@ func TestRemoveItem(t *testing.T) {
 
 		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
 		mongoMock.EXPECT().SetPaginationFilter(nil)
-		mongoMock.EXPECT().Delete(car).Return(&commonlogger.CommonError{Err: MONGO_FATAL_ERROR})
+		mongoMock.EXPECT().Delete(car).Return(&types.PaginationError{Err: MONGO_FATAL_ERROR})
 
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,
@@ -581,7 +579,6 @@ func TestTotalItemOnCache(t *testing.T) {
 
 		assert.NotNil(t, errorTotalItems)
 		assert.Equal(t, REDIS_FATAL_ERROR, errorTotalItems.Err)
-		assert.Equal(t, "totalitem.zcard_redis_fatal_error", errorTotalItems.Context)
 	})
 }
 
@@ -655,7 +652,6 @@ func TestFetchAll(t *testing.T) {
 		assert.NotNil(t, errorFetchAll)
 		assert.Nil(t, fetchAll)
 		assert.Equal(t, REDIS_FATAL_ERROR, errorFetchAll.Err)
-		assert.Equal(t, "fetchall.zrevrange_fatal_error", errorFetchAll.Context)
 	})
 	t.Run("Get item redis fatal error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -665,7 +661,7 @@ func TestFetchAll(t *testing.T) {
 		mockedRedis.ExpectZRevRange(key, 0, -1).SetVal(carRandIds)
 
 		itemCacheMock := mock_interfaces.NewMockItemCache[Car](ctrl)
-		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(Car{}, &commonlogger.CommonError{Err: REDIS_FATAL_ERROR})
+		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(Car{}, &types.PaginationError{Err: REDIS_FATAL_ERROR})
 
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,
@@ -687,7 +683,6 @@ func TestFetchAll(t *testing.T) {
 		assert.NotNil(t, errorFetchAll)
 		assert.Nil(t, fetchAll)
 		assert.Equal(t, REDIS_FATAL_ERROR, errorFetchAll.Err)
-		assert.Equal(t, "fetchall.get_item_fatal_error", errorFetchAll.Context)
 	})
 	t.Run("One of the item member keys doesn't exists", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -697,7 +692,7 @@ func TestFetchAll(t *testing.T) {
 		mockedRedis.ExpectZRevRange(key, 0, -1).SetVal(carRandIds)
 
 		itemCacheMock := mock_interfaces.NewMockItemCache[Car](ctrl)
-		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(Car{}, &commonlogger.CommonError{Err: KEY_NOT_FOUND})
+		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(Car{}, &types.PaginationError{Err: KEY_NOT_FOUND})
 		itemCacheMock.EXPECT().Get(car2.GetRandId()).Return(car2, nil)
 		itemCacheMock.EXPECT().Get(car3.GetRandId()).Return(car3, nil)
 		itemCacheMock.EXPECT().Get(car4.GetRandId()).Return(car4, nil)

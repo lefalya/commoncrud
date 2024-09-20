@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lefalya/commoncrud/interfaces"
-	"github.com/lefalya/commonlogger"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -143,26 +142,6 @@ func (i *Item) GetCreatedAtString() string {
 
 func (i *Item) GetUpdatedAtString() string {
 	return i.UpdatedAtString
-}
-
-func ItemLogHelper[T interfaces.Item](
-	logger *slog.Logger,
-	returnedError error,
-	errorDetail string,
-	context string,
-	item T,
-	args ...string,
-) *commonlogger.CommonError {
-	return commonlogger.LogError(
-		logger,
-		returnedError,
-		errorDetail,
-		context,
-		"UUID", item.GetUUID(),
-		"RandId", item.GetRandId(),
-		"CreatedAt", item.GetCreatedAt().String(),
-		"UpdatedAt", item.GetUpdatedAt().String(),
-	)
 }
 
 type MongoItem struct {
