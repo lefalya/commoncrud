@@ -7,5 +7,5 @@ unit-test-mongo:
 unit-test-itemcache:
 	@go test -v ./main.go ./itemcache.go ./itemcache_test.go
 
-mock_interfaces:
+mock-interfaces:
 	@mockgen -source=interfaces/main.go --destination=./mocks/interfaces.go

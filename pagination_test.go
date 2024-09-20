@@ -625,13 +625,12 @@ func TestFetchAll(t *testing.T) {
 
 		fetchAll, errorFetchAll := pagination.FetchAll(
 			paginationParameters,
-			func(item Car, items *[]Car, args ...interface{}) {
+			func(item Car, items *[]Car) {
 
 				fmt.Println(item)
 
 				*items = append(*items, item)
-			},
-			nil)
+			})
 
 		assert.Nil(t, errorFetchAll)
 		assert.NotNil(t, fetchAll)
@@ -652,10 +651,7 @@ func TestFetchAll(t *testing.T) {
 			nil,
 		)
 
-		fetchAll, errorFetchAll := pagination.FetchAll(
-			paginationParameters,
-			nil,
-			nil)
+		fetchAll, errorFetchAll := pagination.FetchAll(paginationParameters, nil)
 		assert.NotNil(t, errorFetchAll)
 		assert.Nil(t, fetchAll)
 		assert.Equal(t, REDIS_FATAL_ERROR, errorFetchAll.Err)
@@ -681,13 +677,12 @@ func TestFetchAll(t *testing.T) {
 
 		fetchAll, errorFetchAll := pagination.FetchAll(
 			paginationParameters,
-			func(item Car, items *[]Car, args ...interface{}) {
+			func(item Car, items *[]Car) {
 
 				fmt.Println(item)
 
 				*items = append(*items, item)
-			},
-			nil)
+			})
 
 		assert.NotNil(t, errorFetchAll)
 		assert.Nil(t, fetchAll)
@@ -718,13 +713,12 @@ func TestFetchAll(t *testing.T) {
 
 		fetchAll, errorFetchAll := pagination.FetchAll(
 			paginationParameters,
-			func(item Car, items *[]Car, args ...interface{}) {
+			func(item Car, items *[]Car) {
 
 				fmt.Println(item)
 
 				*items = append(*items, item)
-			},
-			nil)
+			})
 
 		assert.Nil(t, errorFetchAll)
 		assert.NotNil(t, fetchAll)

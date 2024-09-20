@@ -122,7 +122,6 @@ func (mo *MongoType[T]) FindMany(
 	pagination interfaces.Pagination[T],
 	paginationParameters []string,
 	processor interfaces.SeedProcessor[T],
-	processorArgs ...interface{},
 ) ([]T, *schema.InternalError) {
 	var results []T
 
@@ -178,7 +177,7 @@ func (mo *MongoType[T]) FindMany(
 		// In contrast, during the fetching process, the processor also evaluates whether
 		// each item meets the criteria to be included in the results.
 		if processor != nil {
-			processor(&item, processorArgs...)
+			processor(&item)
 		}
 
 		results = append(results, item)

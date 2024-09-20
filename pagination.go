@@ -245,8 +245,7 @@ func (pg *PaginationType[T]) FetchLinked(
 	pagKeyParams []string,
 	references []string,
 	itemPerPage int64,
-	processor interfaces.PaginationProcessor[T],
-	processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+	processor interfaces.PaginationProcessor[T]) ([]T, *commonlogger.CommonError) {
 	var items []T
 	var start int64
 	var stop int64
@@ -338,7 +337,7 @@ func (pg *PaginationType[T]) FetchLinked(
 			}
 
 			if processor != nil {
-				processor(item, &items, processorArgs...)
+				processor(item, &items)
 			} else {
 				items = append(items, item)
 			}
@@ -348,10 +347,7 @@ func (pg *PaginationType[T]) FetchLinked(
 	return items, nil
 }
 
-func (pg *PaginationType[T]) FetchAll(
-	pagKeyParams []string,
-	processor interfaces.PaginationProcessor[T],
-	processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+func (pg *PaginationType[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T]) ([]T, *commonlogger.CommonError) {
 	var items []T
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
@@ -392,7 +388,7 @@ func (pg *PaginationType[T]) FetchAll(
 			}
 
 			if processor != nil {
-				processor(item, &items, processorArgs...)
+				processor(item, &items)
 			} else {
 				items = append(items, item)
 			}
@@ -434,7 +430,6 @@ func (pg *PaginationType[T]) SeedLinked(
 	lastItem T,
 	itemPerPage int64,
 	processor interfaces.SeedProcessor[T],
-	processorArgs ...interface{},
 ) ([]T, *commonlogger.CommonError) {
 	errorArgs := []string{}
 
@@ -494,7 +489,6 @@ func (pg *PaginationType[T]) SeedLinked(
 			pg,
 			paginationKeyParameters,
 			processor,
-			processorArgs...,
 		)
 
 		if errorFindItems != nil {
@@ -523,7 +517,6 @@ func (pg *PaginationType[T]) SeedLinked(
 func (pg *PaginationType[T]) SeedAll(
 	paginationKeyParameters []string,
 	processor interfaces.SeedProcessor[T],
-	processorArgs ...interface{},
 ) ([]T, *commonlogger.CommonError) {
 	errorArgs := []string{}
 
@@ -544,7 +537,6 @@ func (pg *PaginationType[T]) SeedAll(
 			pg,
 			paginationKeyParameters,
 			processor,
-			processorArgs...,
 		)
 
 		if errorFindItems != nil {

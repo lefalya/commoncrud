@@ -414,11 +414,10 @@ func TestFindMany(t *testing.T) {
 			findOptions,
 			mockPagination,
 			pagParams,
-			func(item *TestStructMongo, args ...interface{}) {
+			func(item *TestStructMongo) {
 				StringProcess(&item.UUID)
 				fmt.Println(item.UUID)
 			},
-			nil,
 		)
 
 		assert.Nil(t, errorFindMany)

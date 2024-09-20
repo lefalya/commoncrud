@@ -439,43 +439,33 @@ func (mr *MockPaginationMockRecorder[T]) AddItem(pagKeyParams, item interface{})
 }
 
 // FetchAll mocks base method.
-func (m *MockPagination[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T]) ([]T, *commonlogger.CommonError) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{pagKeyParams, processor}
-	for _, a := range processorArgs {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "FetchAll", varargs...)
+	ret := m.ctrl.Call(m, "FetchAll", pagKeyParams, processor)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*commonlogger.CommonError)
 	return ret0, ret1
 }
 
 // FetchAll indicates an expected call of FetchAll.
-func (mr *MockPaginationMockRecorder[T]) FetchAll(pagKeyParams, processor interface{}, processorArgs ...interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) FetchAll(pagKeyParams, processor interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{pagKeyParams, processor}, processorArgs...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchAll", reflect.TypeOf((*MockPagination[T])(nil).FetchAll), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchAll", reflect.TypeOf((*MockPagination[T])(nil).FetchAll), pagKeyParams, processor)
 }
 
 // FetchLinked mocks base method.
-func (m *MockPagination[T]) FetchLinked(pagKeyParams, references []string, itemPerPage int64, processor interfaces.PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) FetchLinked(pagKeyParams, references []string, itemPerPage int64, processor interfaces.PaginationProcessor[T]) ([]T, *commonlogger.CommonError) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{pagKeyParams, references, itemPerPage, processor}
-	for _, a := range processorArgs {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "FetchLinked", varargs...)
+	ret := m.ctrl.Call(m, "FetchLinked", pagKeyParams, references, itemPerPage, processor)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*commonlogger.CommonError)
 	return ret0, ret1
 }
 
 // FetchLinked indicates an expected call of FetchLinked.
-func (mr *MockPaginationMockRecorder[T]) FetchLinked(pagKeyParams, references, itemPerPage, processor interface{}, processorArgs ...interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) FetchLinked(pagKeyParams, references, itemPerPage, processor interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{pagKeyParams, references, itemPerPage, processor}, processorArgs...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchLinked", reflect.TypeOf((*MockPagination[T])(nil).FetchLinked), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchLinked", reflect.TypeOf((*MockPagination[T])(nil).FetchLinked), pagKeyParams, references, itemPerPage, processor)
 }
 
 // FetchOne mocks base method.
@@ -508,43 +498,33 @@ func (mr *MockPaginationMockRecorder[T]) RemoveItem(pagKeyParams, item interface
 }
 
 // SeedAll mocks base method.
-func (m *MockPagination[T]) SeedAll(paginationKeyParameters []string, processor interfaces.SeedProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) SeedAll(paginationKeyParameters []string, processor interfaces.SeedProcessor[T]) ([]T, *commonlogger.CommonError) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{paginationKeyParameters, processor}
-	for _, a := range processorArgs {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "SeedAll", varargs...)
+	ret := m.ctrl.Call(m, "SeedAll", paginationKeyParameters, processor)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*commonlogger.CommonError)
 	return ret0, ret1
 }
 
 // SeedAll indicates an expected call of SeedAll.
-func (mr *MockPaginationMockRecorder[T]) SeedAll(paginationKeyParameters, processor interface{}, processorArgs ...interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) SeedAll(paginationKeyParameters, processor interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{paginationKeyParameters, processor}, processorArgs...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedAll", reflect.TypeOf((*MockPagination[T])(nil).SeedAll), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedAll", reflect.TypeOf((*MockPagination[T])(nil).SeedAll), paginationKeyParameters, processor)
 }
 
 // SeedLinked mocks base method.
-func (m *MockPagination[T]) SeedLinked(paginationKeyParameters []string, lastItem T, itemPerPage int64, processor interfaces.SeedProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError) {
+func (m *MockPagination[T]) SeedLinked(paginationKeyParameters []string, lastItem T, itemPerPage int64, processor interfaces.SeedProcessor[T]) ([]T, *commonlogger.CommonError) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{paginationKeyParameters, lastItem, itemPerPage, processor}
-	for _, a := range processorArgs {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "SeedLinked", varargs...)
+	ret := m.ctrl.Call(m, "SeedLinked", paginationKeyParameters, lastItem, itemPerPage, processor)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*commonlogger.CommonError)
 	return ret0, ret1
 }
 
 // SeedLinked indicates an expected call of SeedLinked.
-func (mr *MockPaginationMockRecorder[T]) SeedLinked(paginationKeyParameters, lastItem, itemPerPage, processor interface{}, processorArgs ...interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) SeedLinked(paginationKeyParameters, lastItem, itemPerPage, processor interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{paginationKeyParameters, lastItem, itemPerPage, processor}, processorArgs...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedLinked", reflect.TypeOf((*MockPagination[T])(nil).SeedLinked), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedLinked", reflect.TypeOf((*MockPagination[T])(nil).SeedLinked), paginationKeyParameters, lastItem, itemPerPage, processor)
 }
 
 // SeedOne mocks base method.
@@ -720,23 +700,18 @@ func (mr *MockMongoMockRecorder[T]) Delete(item interface{}) *gomock.Call {
 }
 
 // FindMany mocks base method.
-func (m *MockMongo[T]) FindMany(filter bson.D, findOptions *options.FindOptions, pagination interfaces.Pagination[T], pagKeyParams []string, seedProcessor interfaces.SeedProcessor[T], seedProcessorArgs ...interface{}) ([]T, *schema.InternalError) {
+func (m *MockMongo[T]) FindMany(filter bson.D, findOptions *options.FindOptions, pagination interfaces.Pagination[T], pagKeyParams []string, seedProcessor interfaces.SeedProcessor[T]) ([]T, *schema.InternalError) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{filter, findOptions, pagination, pagKeyParams, seedProcessor}
-	for _, a := range seedProcessorArgs {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "FindMany", varargs...)
+	ret := m.ctrl.Call(m, "FindMany", filter, findOptions, pagination, pagKeyParams, seedProcessor)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*schema.InternalError)
 	return ret0, ret1
 }
 
 // FindMany indicates an expected call of FindMany.
-func (mr *MockMongoMockRecorder[T]) FindMany(filter, findOptions, pagination, pagKeyParams, seedProcessor interface{}, seedProcessorArgs ...interface{}) *gomock.Call {
+func (mr *MockMongoMockRecorder[T]) FindMany(filter, findOptions, pagination, pagKeyParams, seedProcessor interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{filter, findOptions, pagination, pagKeyParams, seedProcessor}, seedProcessorArgs...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindMany", reflect.TypeOf((*MockMongo[T])(nil).FindMany), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindMany", reflect.TypeOf((*MockMongo[T])(nil).FindMany), filter, findOptions, pagination, pagKeyParams, seedProcessor)
 }
 
 // FindOne mocks base method.

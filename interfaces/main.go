@@ -45,23 +45,20 @@ type Pagination[T Item] interface {
 		references []string,
 		itemPerPage int64,
 		processor PaginationProcessor[T],
-		processorArgs ...interface{}) ([]T, *commonlogger.CommonError)
-	FetchAll(pagKeyParams []string, processor PaginationProcessor[T], processorArgs ...interface{}) ([]T, *commonlogger.CommonError)
+	) ([]T, *commonlogger.CommonError)
+	FetchAll(pagKeyParams []string, processor PaginationProcessor[T]) ([]T, *commonlogger.CommonError)
 	SeedOne(randId string) (*T, *commonlogger.CommonError)
 	SeedLinked(
 		paginationKeyParameters []string,
 		lastItem T,
 		itemPerPage int64,
 		processor SeedProcessor[T],
-		processorArgs ...interface{}) ([]T, *commonlogger.CommonError)
-	SeedAll(
-		paginationKeyParameters []string,
-		processor SeedProcessor[T],
-		processorArgs ...interface{}) ([]T, *commonlogger.CommonError)
+	) ([]T, *commonlogger.CommonError)
+	SeedAll(paginationKeyParameters []string, processor SeedProcessor[T]) ([]T, *commonlogger.CommonError)
 }
 
-type PaginationProcessor[T Item] func(item T, items *[]T, args ...interface{})
-type SeedProcessor[T Item] func(item *T, args ...interface{})
+type PaginationProcessor[T Item] func(item T, items *[]T)
+type SeedProcessor[T Item] func(item *T)
 
 type ItemCache[T Item] interface {
 	Get(randId string) (T, *commonlogger.CommonError)
@@ -78,7 +75,6 @@ type Mongo[T Item] interface {
 		pagination Pagination[T],
 		pagKeyParams []string,
 		seedProcessor SeedProcessor[T],
-		seedProcessorArgs ...interface{},
 	) ([]T, *schema.InternalError)
 	Update(item T) *schema.InternalError
 	Delete(item T) *schema.InternalError
