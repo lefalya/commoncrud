@@ -12,11 +12,26 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const (
+	ascending  = "ascending"
+	descending = "descending"
+	randomized = iota
+
+	ascendingTrailing  = ":asc"
+	descendingTrailing = ":desc"
+)
+
+type SortingOption struct {
+	attribute string
+	direction string
+}
+
 type PaginationType[T interfaces.Item] struct {
 	pagKeyFormat  string
 	itemKeyFormat string
 	logger        *slog.Logger
 	redisClient   redis.UniversalClient
+	sorting       *SortingOption
 	mongo         interfaces.Mongo[T]
 	itemCache     interfaces.ItemCache[T]
 }
@@ -33,13 +48,49 @@ func Pagination[T interfaces.Item](
 		itemKeyFormat: itemKeyFormat,
 	}
 
-	return &PaginationType[T]{
+	sortingOpt := SortingOption{}
+	var isSortingDirExists bool
+
+	// Get the type of T using reflection
+	t := reflect.TypeOf((*T)(nil)).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+
+		attribute := f.Tag.Get("attr")
+		sorting := f.Tag.Get("sorting")
+		if sorting == ascending {
+			isSortingDirExists = true
+			sortingOpt.attribute = attribute
+			sortingOpt.direction = ascending
+		} else if sorting == descending {
+			isSortingDirExists = true
+			sortingOpt.attribute = attribute
+			sortingOpt.direction = descending
+		}
+	}
+
+	pagination := &PaginationType[T]{
 		pagKeyFormat:  pagKeyFormat,
 		itemKeyFormat: itemKeyFormat,
 		logger:        logger,
 		redisClient:   redisClient,
 		itemCache:     itemCache,
 	}
+
+	if isSortingDirExists {
+		pagination.sorting = &sortingOpt
+	}
+
+	return pagination
+}
+
+func (pg *PaginationType[T]) SortBy(attribute string, direction string) {
+	sortingOpt := SortingOption{
+		attribute: attribute,
+		direction: direction,
+	}
+
+	pg.sorting = &sortingOpt
 }
 
 func (pg *PaginationType[T]) WithMongo(mongo interfaces.Mongo[T], paginationFilter bson.A) {
@@ -306,7 +357,12 @@ func (pg *PaginationType[T]) FetchAll(pagKeyParams []string, processor interface
 	var items []T
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
-	members := pg.redisClient.ZRevRange(context.TODO(), key, 0, -1)
+	var members *redis.StringSliceCmd
+	if pg.sorting != nil {
+
+	}
+
+	members = pg.redisClient.ZRevRange(context.TODO(), key, 0, -1)
 	if members.Err() != nil {
 		return nil, &types.PaginationError{
 			Err:     REDIS_FATAL_ERROR,

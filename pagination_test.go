@@ -72,9 +72,10 @@ type Seater struct {
 type Car struct {
 	*Item
 	*MongoItem
-	Brand    string
-	Category string
-	Seating  []Seater
+	Ranking  int64    `attr:"ranking" sorting:"descending"`
+	Brand    string   `attr:"brand"`
+	Category string   `attr:"category"`
+	Seating  []Seater `attr:"seating"`
 }
 
 func TestInjectPagination(t *testing.T) {
@@ -92,6 +93,15 @@ func TestInjectPagination(t *testing.T) {
 
 func TestConcatKey(t *testing.T) {
 
+}
+
+func TestInitPagiantion(t *testing.T) {
+
+	t.Run("init pagination with sorting", func(t *testing.T) {
+		pagination := Pagination[Car]("", "", nil, nil)
+
+		assert.NotNil(t, pagination)
+	})
 }
 
 func TestAddItem(t *testing.T) {
