@@ -24,6 +24,7 @@ const (
 type SortingOption struct {
 	attribute string
 	direction string
+	index     int
 }
 
 type PaginationType[T interfaces.Item] struct {
@@ -56,17 +57,22 @@ func Pagination[T interfaces.Item](
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 
-		attribute := f.Tag.Get("attr")
-		sorting := f.Tag.Get("sorting")
-		if sorting == ascending {
-			isSortingDirExists = true
-			sortingOpt.attribute = attribute
-			sortingOpt.direction = ascending
-		} else if sorting == descending {
-			isSortingDirExists = true
-			sortingOpt.attribute = attribute
-			sortingOpt.direction = descending
+		if f.Tag.Get("bson") != "" {
+			sortingOpt.attribute = f.Tag.Get("bson")
+		} else if f.Tag.Get("db") != "" {
+			sortingOpt.attribute = f.Tag.Get("db")
 		}
+		sorting := f.Tag.Get("sorting")
+		if sorting != "" {
+			isSortingDirExists = true
+			sortingOpt.index = i
+			if sorting == ascending {
+				sortingOpt.direction = ascending
+			} else if sorting == descending {
+				sortingOpt.direction = descending
+			}
+		}
+
 	}
 
 	pagination := &PaginationType[T]{
@@ -111,10 +117,16 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 	}
 
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
+	var sortedSetKey string
+	if pg.sorting != nil && pg.sorting.direction == ascending {
+		sortedSetKey = key + ":" + ascending
+	} else {
+		sortedSetKey = key + ":" + descending
+	}
 
 	totalItem := pg.redisClient.ZCard(
 		context.TODO(),
-		key,
+		sortedSetKey,
 	)
 	if totalItem.Err() != nil {
 		return &types.PaginationError{
@@ -135,17 +147,27 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 			}
 		}
 
-		sortedSetMember := redis.Z{
-			Score:  float64(item.GetCreatedAt().Unix()),
-			Member: item.GetRandId(),
+		var score float64
+		if pg.sorting != nil {
+			value, ok := reflect.ValueOf(item).Elem().Field(pg.sorting.index).Interface().(float64)
+			if ok {
+				score = value
+			} else {
+				score = float64(item.GetCreatedAt().Unix())
+			}
+		} else {
+			score = float64(item.GetCreatedAt().Unix())
 		}
 
+		sortedSetMember := redis.Z{
+			Score:  score,
+			Member: item.GetRandId(),
+		}
 		setSortedSet := pg.redisClient.ZAdd(
 			context.TODO(),
-			key,
+			sortedSetKey,
 			sortedSetMember,
 		)
-
 		if setSortedSet.Err() != nil {
 			return &types.PaginationError{
 				Err:     REDIS_FATAL_ERROR,
@@ -156,10 +178,9 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 
 		setExpire := pg.redisClient.Expire(
 			context.TODO(),
-			key,
+			sortedSetKey,
 			SORTED_SET_TTL,
 		)
-
 		if setExpire.Err() != nil {
 			return &types.PaginationError{
 				Err:     REDIS_FATAL_ERROR,
@@ -211,9 +232,16 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.Pa
 		return errorDelete
 	}
 
+	var sortedSetKey string
+	if pg.sorting != nil && pg.sorting.direction == ascending {
+		sortedSetKey = key + ":" + ascending
+	} else {
+		sortedSetKey = key + ":" + descending
+	}
+
 	totalItem := pg.redisClient.ZCard(
 		context.TODO(),
-		key,
+		sortedSetKey,
 	)
 	if totalItem.Err() != nil {
 		return &types.PaginationError{
@@ -225,7 +253,7 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.Pa
 
 	// only remove item from sorted set, if the sorted set exists
 	if totalItem.Val() > 0 {
-		removeItemSortedSet := pg.redisClient.ZRem(context.TODO(), key, item.GetRandId())
+		removeItemSortedSet := pg.redisClient.ZRem(context.TODO(), sortedSetKey, item.GetRandId())
 
 		if removeItemSortedSet.Err() != nil {
 			return &types.PaginationError{
@@ -243,9 +271,16 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.Pa
 func (pg *PaginationType[T]) TotalItemOnCache(pagKeyParams []string) *types.PaginationError {
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
+	var sortedSetKey string
+	if pg.sorting != nil && pg.sorting.direction == ascending {
+		sortedSetKey = key + ":" + ascending
+	} else {
+		sortedSetKey = key + ":" + descending
+	}
+
 	totalItem := pg.redisClient.ZCard(
 		context.TODO(),
-		key,
+		sortedSetKey,
 	)
 
 	if totalItem.Err() != nil {
@@ -290,7 +325,14 @@ func (pg *PaginationType[T]) FetchLinked(
 		}
 
 		for i := len(references) - 1; i >= 0; i-- {
-			rank := pg.redisClient.ZRevRank(context.TODO(), key, references[i])
+			var rank *redis.IntCmd
+			if pg.sorting != nil && pg.sorting.direction == ascending {
+				sortedSetKey := key + ":" + ascending
+				rank = pg.redisClient.ZRank(context.TODO(), sortedSetKey, references[i])
+			} else {
+				sortedSetKey := key + ":" + descending
+				rank = pg.redisClient.ZRevRank(context.TODO(), sortedSetKey, references[i])
+			}
 
 			if rank.Err() != nil {
 				if rank.Err() == redis.Nil {
@@ -318,7 +360,13 @@ func (pg *PaginationType[T]) FetchLinked(
 
 	stop = start + itemPerPage - 1
 
-	members := pg.redisClient.ZRevRange(context.TODO(), key, start, stop)
+	var members *redis.StringSliceCmd
+	if pg.sorting != nil && pg.sorting.direction == ascending {
+		members = pg.redisClient.ZRange(context.TODO(), key, start, stop)
+	} else {
+		members = pg.redisClient.ZRevRange(context.TODO(), key, start, stop)
+	}
+
 	if members.Err() != nil {
 		return nil, &types.PaginationError{
 			Err:     REDIS_FATAL_ERROR,
@@ -358,11 +406,14 @@ func (pg *PaginationType[T]) FetchAll(pagKeyParams []string, processor interface
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
 	var members *redis.StringSliceCmd
-	if pg.sorting != nil {
-
+	if pg.sorting != nil && pg.sorting.direction == ascending {
+		sortedSetKey := key + ":" + ascending
+		members = pg.redisClient.ZRange(context.TODO(), sortedSetKey, 0, -1)
+	} else {
+		sortedSetKey := key + ":" + descending
+		members = pg.redisClient.ZRevRange(context.TODO(), sortedSetKey, 0, -1)
 	}
 
-	members = pg.redisClient.ZRevRange(context.TODO(), key, 0, -1)
 	if members.Err() != nil {
 		return nil, &types.PaginationError{
 			Err:     REDIS_FATAL_ERROR,
@@ -478,7 +529,12 @@ func (pg *PaginationType[T]) SeedLinked(
 		}
 
 		findOptions := options.Find()
-		findOptions.SetSort(bson.D{{"_id", -1}})
+		if pg.sorting != nil && pg.sorting.direction == ascending {
+			findOptions.SetSort(bson.D{{"_id", 1}})
+		} else {
+			findOptions.SetSort(bson.D{{"_id", -1}})
+		}
+
 		findOptions.SetLimit(itemPerPage)
 
 		items, errorFindItems := pg.mongo.FindMany(
@@ -521,7 +577,11 @@ func (pg *PaginationType[T]) SeedAll(
 		}
 
 		findOptions := options.Find()
-		findOptions.SetSort(bson.D{{"_id", -1}})
+		if pg.sorting != nil && pg.sorting.direction == ascending {
+			findOptions.SetSort(bson.D{{"_id", 1}})
+		} else {
+			findOptions.SetSort(bson.D{{"_id", -1}})
+		}
 
 		cursor, errorFindItems := pg.mongo.FindMany(
 			filter,

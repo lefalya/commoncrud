@@ -45,7 +45,7 @@ var (
 		bson.D{{"car", brand}},
 		bson.D{{"category", category}},
 	}
-	key = concatKey(paginationKeyFormat, paginationParameters)
+	key = concatKey(paginationKeyFormat, paginationParameters) + ":descending"
 )
 
 func initTestPaginationType[T interfaces.Item](
@@ -72,10 +72,10 @@ type Seater struct {
 type Car struct {
 	*Item
 	*MongoItem
-	Ranking  int64    `attr:"ranking" sorting:"descending"`
-	Brand    string   `attr:"brand"`
-	Category string   `attr:"category"`
-	Seating  []Seater `attr:"seating"`
+	Ranking  int64    `bson:"ranking" sorting:"descending"`
+	Brand    string   `bson:"brand"`
+	Category string   `bson:"category"`
+	Seating  []Seater `bson:"seating"`
 }
 
 func TestInjectPagination(t *testing.T) {
@@ -91,15 +91,9 @@ func TestInjectPagination(t *testing.T) {
 	assert.NotNil(t, injected)
 }
 
-func TestConcatKey(t *testing.T) {
-
-}
-
 func TestInitPagiantion(t *testing.T) {
-
 	t.Run("init pagination with sorting", func(t *testing.T) {
 		pagination := Pagination[Car]("", "", nil, nil)
-
 		assert.NotNil(t, pagination)
 	})
 }
@@ -186,6 +180,12 @@ func TestAddItem(t *testing.T) {
 
 		errorAddItem := pagination.AddItem(paginationParameters, car)
 		assert.Nil(t, errorAddItem)
+	})
+	t.Run("add item descending", func(t *testing.T) {
+
+	})
+	t.Run("add item ascending", func(t *testing.T) {
+
 	})
 	t.Run("zcard fatal error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
