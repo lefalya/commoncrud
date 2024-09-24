@@ -17,8 +17,8 @@ const (
 	descending = "descending"
 	randomized = iota
 
-	ascendingTrailing  = ":asc"
-	descendingTrailing = ":desc"
+	ascendingTrailing  = ":ascby:"
+	descendingTrailing = ":descby:"
 )
 
 type SortingOption struct {
@@ -37,6 +37,36 @@ type PaginationType[T interfaces.Item] struct {
 	itemCache     interfaces.ItemCache[T]
 }
 
+func SetSorting[T interfaces.Item]() *SortingOption {
+	var sortingOpt SortingOption
+
+	t := reflect.TypeOf((*T)(nil)).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+
+		sorting := f.Tag.Get("sorting")
+		if sorting != "" {
+			sortingOpt.index = i
+			if sorting == ascending {
+				sortingOpt.direction = ascending
+			} else if sorting == descending {
+				sortingOpt.direction = descending
+			}
+			if f.Name == "Item" {
+				sortingOpt.attribute = "createdat"
+			} else if f.Tag.Get("bson") != "" {
+				sortingOpt.attribute = f.Tag.Get("bson")
+			} else if f.Tag.Get("db") != "" {
+				sortingOpt.attribute = f.Tag.Get("db")
+			}
+
+			return &sortingOpt
+		}
+	}
+
+	return nil
+}
+
 func Pagination[T interfaces.Item](
 	pagKeyFormat string,
 	itemKeyFormat string,
@@ -49,32 +79,6 @@ func Pagination[T interfaces.Item](
 		itemKeyFormat: itemKeyFormat,
 	}
 
-	sortingOpt := SortingOption{}
-	var isSortingDirExists bool
-
-	// Get the type of T using reflection
-	t := reflect.TypeOf((*T)(nil)).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-
-		if f.Tag.Get("bson") != "" {
-			sortingOpt.attribute = f.Tag.Get("bson")
-		} else if f.Tag.Get("db") != "" {
-			sortingOpt.attribute = f.Tag.Get("db")
-		}
-		sorting := f.Tag.Get("sorting")
-		if sorting != "" {
-			isSortingDirExists = true
-			sortingOpt.index = i
-			if sorting == ascending {
-				sortingOpt.direction = ascending
-			} else if sorting == descending {
-				sortingOpt.direction = descending
-			}
-		}
-
-	}
-
 	pagination := &PaginationType[T]{
 		pagKeyFormat:  pagKeyFormat,
 		itemKeyFormat: itemKeyFormat,
@@ -83,20 +87,12 @@ func Pagination[T interfaces.Item](
 		itemCache:     itemCache,
 	}
 
-	if isSortingDirExists {
-		pagination.sorting = &sortingOpt
+	sortOpt := SetSorting[T]()
+	if sortOpt != nil {
+		pagination.sorting = sortOpt
 	}
 
 	return pagination
-}
-
-func (pg *PaginationType[T]) SortBy(attribute string, direction string) {
-	sortingOpt := SortingOption{
-		attribute: attribute,
-		direction: direction,
-	}
-
-	pg.sorting = &sortingOpt
 }
 
 func (pg *PaginationType[T]) WithMongo(mongo interfaces.Mongo[T], paginationFilter bson.A) {
@@ -119,9 +115,15 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 	var sortedSetKey string
 	if pg.sorting != nil && pg.sorting.direction == ascending {
-		sortedSetKey = key + ":" + ascending
+		// custom ascending
+		// defaullt ascending
+		sortedSetKey = key + ascendingTrailing + pg.sorting.attribute
+	} else if pg.sorting != nil && pg.sorting.direction == descending {
+		// custom descending
+		sortedSetKey = key + descendingTrailing + pg.sorting.attribute
 	} else {
-		sortedSetKey = key + ":" + descending
+		// default descending
+		sortedSetKey = key + descendingTrailing + "createdat"
 	}
 
 	totalItem := pg.redisClient.ZCard(
@@ -148,12 +150,24 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 		}
 
 		var score float64
-		if pg.sorting != nil {
-			value, ok := reflect.ValueOf(item).Elem().Field(pg.sorting.index).Interface().(float64)
-			if ok {
-				score = value
+		if pg.sorting != nil && pg.sorting.attribute != "createdat" {
+			value := reflect.ValueOf(&item).Elem().Field(pg.sorting.index).Interface()
+			if value != nil {
+				switch v := value.(type) {
+				case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32:
+					score = float64(v.(int64))
+				case float64:
+					score = v
+				default:
+					return &types.PaginationError{
+						Err:     MUST_BE_NUMERICAL_DATATYPE,
+						Message: "Cannot use assigned attribute value for sorting due to its invalid datatype.",
+					}
+				}
 			} else {
-				score = float64(item.GetCreatedAt().Unix())
+				return &types.PaginationError{
+					Err: FOUND_SORTING_BUT_NO_VALUE,
+				}
 			}
 		} else {
 			score = float64(item.GetCreatedAt().Unix())
@@ -234,9 +248,11 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.Pa
 
 	var sortedSetKey string
 	if pg.sorting != nil && pg.sorting.direction == ascending {
-		sortedSetKey = key + ":" + ascending
+		sortedSetKey = key + ascendingTrailing + pg.sorting.attribute
+	} else if pg.sorting != nil && pg.sorting.direction == descending {
+		sortedSetKey = key + descendingTrailing + pg.sorting.attribute
 	} else {
-		sortedSetKey = key + ":" + descending
+		sortedSetKey = key + descendingTrailing + "createdat"
 	}
 
 	totalItem := pg.redisClient.ZCard(
@@ -273,9 +289,11 @@ func (pg *PaginationType[T]) TotalItemOnCache(pagKeyParams []string) *types.Pagi
 
 	var sortedSetKey string
 	if pg.sorting != nil && pg.sorting.direction == ascending {
-		sortedSetKey = key + ":" + ascending
+		sortedSetKey = key + ascendingTrailing + pg.sorting.attribute
+	} else if pg.sorting != nil && pg.sorting.direction == descending {
+		sortedSetKey = key + descendingTrailing + pg.sorting.attribute
 	} else {
-		sortedSetKey = key + ":" + descending
+		sortedSetKey = key + descendingTrailing + "createdat"
 	}
 
 	totalItem := pg.redisClient.ZCard(
@@ -327,10 +345,13 @@ func (pg *PaginationType[T]) FetchLinked(
 		for i := len(references) - 1; i >= 0; i-- {
 			var rank *redis.IntCmd
 			if pg.sorting != nil && pg.sorting.direction == ascending {
-				sortedSetKey := key + ":" + ascending
+				sortedSetKey := key + ascendingTrailing + pg.sorting.attribute
 				rank = pg.redisClient.ZRank(context.TODO(), sortedSetKey, references[i])
+			} else if pg.sorting != nil && pg.sorting.direction == descending {
+				sortedSetKey := key + descendingTrailing + pg.sorting.attribute
+				rank = pg.redisClient.ZRevRank(context.TODO(), sortedSetKey, references[i])
 			} else {
-				sortedSetKey := key + ":" + descending
+				sortedSetKey := key + descendingTrailing + "createdat"
 				rank = pg.redisClient.ZRevRank(context.TODO(), sortedSetKey, references[i])
 			}
 
@@ -362,9 +383,14 @@ func (pg *PaginationType[T]) FetchLinked(
 
 	var members *redis.StringSliceCmd
 	if pg.sorting != nil && pg.sorting.direction == ascending {
-		members = pg.redisClient.ZRange(context.TODO(), key, start, stop)
+		sortedSetKey := key + ascendingTrailing + pg.sorting.attribute
+		members = pg.redisClient.ZRange(context.TODO(), sortedSetKey, start, stop)
+	} else if pg.sorting != nil && pg.sorting.direction == descending {
+		sortedSetKey := key + descendingTrailing + pg.sorting.attribute
+		members = pg.redisClient.ZRevRange(context.TODO(), sortedSetKey, start, stop)
 	} else {
-		members = pg.redisClient.ZRevRange(context.TODO(), key, start, stop)
+		sortedSetKey := key + descendingTrailing + "createdat"
+		members = pg.redisClient.ZRevRange(context.TODO(), sortedSetKey, start, stop)
 	}
 
 	if members.Err() != nil {
@@ -407,10 +433,13 @@ func (pg *PaginationType[T]) FetchAll(pagKeyParams []string, processor interface
 
 	var members *redis.StringSliceCmd
 	if pg.sorting != nil && pg.sorting.direction == ascending {
-		sortedSetKey := key + ":" + ascending
+		sortedSetKey := key + ascendingTrailing + pg.sorting.attribute
 		members = pg.redisClient.ZRange(context.TODO(), sortedSetKey, 0, -1)
+	} else if pg.sorting != nil && pg.sorting.direction == descending {
+		sortedSetKey := key + descendingTrailing + pg.sorting.attribute
+		members = pg.redisClient.ZRevRange(context.TODO(), sortedSetKey, 0, -1)
 	} else {
-		sortedSetKey := key + ":" + descending
+		sortedSetKey := key + descendingTrailing + "createdat"
 		members = pg.redisClient.ZRevRange(context.TODO(), sortedSetKey, 0, -1)
 	}
 
