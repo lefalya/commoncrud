@@ -35,25 +35,25 @@ type MongoItem interface {
 type Pagination[T Item] interface {
 	WithMongo(mongo Mongo[T], paginationFilter bson.A)
 	AddItem(pagKeyParams []string, item T) *types.PaginationError
-	UpdateItem(item T) *types.PaginationError
-	RemoveItem(pagKeyParams []string, item T) *types.PaginationError
-	TotalItemOnCache(pagKeyParams []string) *types.PaginationError
-	FetchOne(randId string) (*T, *types.PaginationError)
-	FetchLinked(
-		pagKeyParams []string,
-		references []string,
-		itemPerPage int64,
-		processor PaginationProcessor[T],
-	) ([]T, *types.PaginationError)
-	FetchAll(pagKeyParams []string, processor PaginationProcessor[T]) ([]T, *types.PaginationError)
-	SeedOne(randId string) (*T, *types.PaginationError)
-	SeedLinked(
-		paginationKeyParameters []string,
-		lastItem T,
-		itemPerPage int64,
-		processor SeedProcessor[T],
-	) ([]T, *types.PaginationError)
-	SeedAll(paginationKeyParameters []string, processor SeedProcessor[T]) ([]T, *types.PaginationError)
+	// UpdateItem(item T) *types.PaginationError
+	// RemoveItem(pagKeyParams []string, item T) *types.PaginationError
+	// TotalItemOnCache(pagKeyParams []string) *types.PaginationError
+	// FetchOne(randId string) (*T, *types.PaginationError)
+	// FetchLinked(
+	// 	pagKeyParams []string,
+	// 	references []string,
+	// 	itemPerPage int64,
+	// 	processor PaginationProcessor[T],
+	// ) ([]T, *types.PaginationError)
+	// FetchAll(pagKeyParams []string, processor PaginationProcessor[T]) ([]T, *types.PaginationError)
+	// SeedOne(randId string) (*T, *types.PaginationError)
+	// SeedLinked(
+	// 	paginationKeyParameters []string,
+	// 	lastItem T,
+	// 	itemPerPage int64,
+	// 	processor SeedProcessor[T],
+	// ) ([]T, *types.PaginationError)
+	// SeedAll(paginationKeyParameters []string, processor SeedProcessor[T]) ([]T, *types.PaginationError)
 }
 
 type PaginationProcessor[T Item] func(item T, items *[]T)

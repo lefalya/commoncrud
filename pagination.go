@@ -9,7 +9,6 @@ import (
 	"github.com/lefalya/commoncrud/types"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -23,8 +22,8 @@ const (
 
 type SortingOption struct {
 	attribute string
-	direction string
 	index     int
+	mode      string
 }
 
 type PaginationType[T interfaces.Item] struct {
@@ -39,22 +38,18 @@ type PaginationType[T interfaces.Item] struct {
 
 func SetSorting[T interfaces.Item]() *SortingOption {
 	var sortingOpt SortingOption
-
 	t := reflect.TypeOf((*T)(nil)).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
 
 		sorting := f.Tag.Get("sorting")
 		if sorting != "" {
-			sortingOpt.index = i
-			if sorting == ascending {
-				sortingOpt.direction = ascending
-			} else if sorting == descending {
-				sortingOpt.direction = descending
+			if sorting == "ordered" {
+				sortingOpt.index = i
+				sortingOpt.mode = "ordered"
 			}
-			if f.Name == "Item" {
-				sortingOpt.attribute = "createdat"
-			} else if f.Tag.Get("bson") != "" {
+
+			if f.Tag.Get("bson") != "" {
 				sortingOpt.attribute = f.Tag.Get("bson")
 			} else if f.Tag.Get("db") != "" {
 				sortingOpt.attribute = f.Tag.Get("db")
@@ -114,16 +109,13 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 	var sortedSetKey string
-	if pg.sorting != nil && pg.sorting.direction == ascending {
+
+	if pg.sorting != nil && pg.sorting.mode == "ordered" {
 		// custom ascending
 		// defaullt ascending
-		sortedSetKey = key + ascendingTrailing + pg.sorting.attribute
-	} else if pg.sorting != nil && pg.sorting.direction == descending {
-		// custom descending
-		sortedSetKey = key + descendingTrailing + pg.sorting.attribute
+		sortedSetKey = key + ":sortby:" + pg.sorting.attribute
 	} else {
-		// default descending
-		sortedSetKey = key + descendingTrailing + "createdat"
+		sortedSetKey = key + ":sortby:createdat"
 	}
 
 	totalItem := pg.redisClient.ZCard(
@@ -206,6 +198,8 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 
 	return nil
 }
+
+/**
 
 func (pg *PaginationType[T]) UpdateItem(item T) *types.PaginationError {
 	if pg.mongo != nil {
@@ -638,3 +632,4 @@ func (pg *PaginationType[T]) SeedAll(
 
 	return results, nil
 }
+**/

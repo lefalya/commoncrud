@@ -1,19 +1,7 @@
 package commoncrud
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-	"testing"
-	"time"
-
-	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 // using aircraft
@@ -86,6 +74,7 @@ type AircraftCustomAscend struct {
 	Engine   []Engine `bson:"engine"`
 }
 
+/**
 func connectMongo() *mongo.Collection {
 	URI := os.Getenv("MONGO_HOST")
 	database := os.Getenv("MONGO_DATABASE")
@@ -761,3 +750,4 @@ func TestSeedOneIntegration(t *testing.T) {
 		fmt.Println(car)
 	})
 }
+**/
