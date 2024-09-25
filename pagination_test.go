@@ -127,7 +127,7 @@ func TestInjectPagination(t *testing.T) {
 
 func TestInitPagiantion(t *testing.T) {
 	t.Run("init pagination with sorting", func(t *testing.T) {
-		pagination := Pagination[Car]("", "", nil, nil)
+		pagination := Pagination[CarCustomDescend]("", "", nil, nil)
 		assert.NotNil(t, pagination)
 		assert.Equal(t, "ranking", pagination.sorting.attribute)
 		assert.Equal(t, descending, pagination.sorting.direction)
@@ -205,13 +205,13 @@ func TestAddItem(t *testing.T) {
 		itemCacheMock.EXPECT().Set(car).Return(nil)
 
 		redisDB, mockedRedis := redismock.NewClientMock()
-		mockedRedis.ExpectZCard(key).SetVal(3)
+		mockedRedis.ExpectZCard(key + descendingTrailing + "createdat").SetVal(3)
 		expectedZMember := redis.Z{
 			Score:  float64(car.GetCreatedAt().Unix()),
 			Member: car.GetRandId(),
 		}
-		mockedRedis.ExpectZAdd(key, expectedZMember).SetVal(1)
-		mockedRedis.ExpectExpire(key, SORTED_SET_TTL).SetVal(true)
+		mockedRedis.ExpectZAdd(key+descendingTrailing+"createdat", expectedZMember).SetVal(1)
+		mockedRedis.ExpectExpire(key+descendingTrailing+"createdat", SORTED_SET_TTL).SetVal(true)
 
 		pagination := initTestPaginationType(
 			paginationKeyFormat,
@@ -1467,14 +1467,422 @@ func TestFetchAll(t *testing.T) {
 	})
 }
 
-func TestSeedLinked(t *testing.T) {
+func TestFetchLinked(t *testing.T) {
+	t.Run("successfully fetch first page without processing", func(t *testing.T) {
+		itemPerPage := int64(5)
+		car1 := NewMongoItem(Car{Brand: "Toyota", Category: "SUV", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 3}, {Material: "Leather", Occupancy: 2}}})
+		car2 := NewMongoItem(Car{Brand: "Honda", Category: "Sedan", Seating: []Seater{{Material: "Fabric", Occupancy: 2}, {Material: "Fabric", Occupancy: 3}}})
+		car3 := NewMongoItem(Car{Brand: "Ford", Category: "Truck", Seating: []Seater{{Material: "Vinyl", Occupancy: 2}, {Material: "Vinyl", Occupancy: 2}}})
+		car4 := NewMongoItem(Car{Brand: "BMW", Category: "Coupe", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 2}}})
+		car5 := NewMongoItem(Car{Brand: "Tesla", Category: "Electric", Seating: []Seater{{Material: "Vegan Leather", Occupancy: 2}, {Material: "Vegan Leather", Occupancy: 3}}})
 
-	t.Run("succesfully seed documents", func(t *testing.T) {
+		carRandIds := []string{
+			car5.GetRandId(),
+			car4.GetRandId(),
+			car3.GetRandId(),
+			car2.GetRandId(),
+			car1.GetRandId(),
+		}
 
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
+		itemCacheMock := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(car1, nil)
+		itemCacheMock.EXPECT().Get(car2.GetRandId()).Return(car2, nil)
+		itemCacheMock.EXPECT().Get(car3.GetRandId()).Return(car3, nil)
+		itemCacheMock.EXPECT().Get(car4.GetRandId()).Return(car4, nil)
+		itemCacheMock.EXPECT().Get(car5.GetRandId()).Return(car5, nil)
 
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZRevRange(key+descendingTrailing+"createdat", 0, itemPerPage-1).SetVal(carRandIds)
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCacheMock,
+		)
+
+		cars, errorFetch := pagination.FetchLinked(
+			paginationParameters,
+			nil,
+			itemPerPage,
+			nil,
+		)
+		assert.Nil(t, errorFetch)
+		assert.Equal(t, 5, len(cars))
+		assert.Equal(t, car5.GetRandId(), cars[0].GetRandId())
+		assert.Equal(t, car4.GetRandId(), cars[1].GetRandId())
+		assert.Equal(t, car3.GetRandId(), cars[2].GetRandId())
+		assert.Equal(t, car2.GetRandId(), cars[3].GetRandId())
+		assert.Equal(t, car1.GetRandId(), cars[4].GetRandId())
+	})
+	t.Run("successfully fetch second page with processing", func(t *testing.T) {
+		itemPerPage := int64(5)
+		car1 := NewMongoItem(Car{Brand: "Toyota", Category: "SUV", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 3}, {Material: "Leather", Occupancy: 2}}})
+		car2 := NewMongoItem(Car{Brand: "Honda", Category: "Sedan", Seating: []Seater{{Material: "Fabric", Occupancy: 2}, {Material: "Fabric", Occupancy: 3}}})
+		car3 := NewMongoItem(Car{Brand: "Ford", Category: "Truck", Seating: []Seater{{Material: "Vinyl", Occupancy: 2}, {Material: "Vinyl", Occupancy: 2}}})
+		car4 := NewMongoItem(Car{Brand: "BMW", Category: "Coupe", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 2}}})
+		car5 := NewMongoItem(Car{Brand: "Tesla", Category: "Electric", Seating: []Seater{{Material: "Vegan Leather", Occupancy: 2}, {Material: "Vegan Leather", Occupancy: 3}}})
+
+		carRandIds := []string{
+			car5.GetRandId(),
+			car4.GetRandId(),
+			car3.GetRandId(),
+			car2.GetRandId(),
+			car1.GetRandId(),
+		}
+
+		references := []string{
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		itemCacheMock := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(car1, nil)
+		itemCacheMock.EXPECT().Get(car2.GetRandId()).Return(car2, nil)
+		itemCacheMock.EXPECT().Get(car3.GetRandId()).Return(car3, nil)
+		itemCacheMock.EXPECT().Get(car4.GetRandId()).Return(car4, nil)
+		itemCacheMock.EXPECT().Get(car5.GetRandId()).Return(car5, nil)
+
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZRevRank(key+descendingTrailing+"createdat", references[4]).SetVal(int64(4))
+		mockedRedis.ExpectZRevRange(key+descendingTrailing+"createdat", 5, 5+itemPerPage-1).SetVal(carRandIds)
+
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCacheMock,
+		)
+
+		cars, errorFetch := pagination.FetchLinked(
+			paginationParameters,
+			references,
+			itemPerPage,
+			func(item Car, items *[]Car) {
+
+				item.Category = "SUV"
+
+				*items = append(*items, item)
+			},
+		)
+		assert.Nil(t, errorFetch)
+		assert.Equal(t, 5, len(cars))
+		assert.Equal(t, "SUV", cars[0].Category)
+		assert.Equal(t, "SUV", cars[1].Category)
+		assert.Equal(t, "SUV", cars[2].Category)
+		assert.Equal(t, "SUV", cars[3].Category)
+		assert.Equal(t, "SUV", cars[4].Category)
+	})
+	t.Run("eleminate one item from result set with processor", func(t *testing.T) {
+		itemPerPage := int64(5)
+		car1 := NewMongoItem(Car{Brand: "Toyota", Category: "SUV", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 3}, {Material: "Leather", Occupancy: 2}}})
+		car2 := NewMongoItem(Car{Brand: "Honda", Category: "Sedan", Seating: []Seater{{Material: "Fabric", Occupancy: 2}, {Material: "Fabric", Occupancy: 3}}})
+		car3 := NewMongoItem(Car{Brand: "Ford", Category: "Truck", Seating: []Seater{{Material: "Vinyl", Occupancy: 2}, {Material: "Vinyl", Occupancy: 2}}})
+		car4 := NewMongoItem(Car{Brand: "BMW", Category: "Coupe", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 2}}})
+		car5 := NewMongoItem(Car{Brand: "Tesla", Category: "Electric", Seating: []Seater{{Material: "Vegan Leather", Occupancy: 2}, {Material: "Vegan Leather", Occupancy: 3}}})
+
+		carRandIds := []string{
+			car5.GetRandId(),
+			car4.GetRandId(),
+			car3.GetRandId(),
+			car2.GetRandId(),
+			car1.GetRandId(),
+		}
+
+		references := []string{
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		itemCacheMock := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(car1, nil)
+		itemCacheMock.EXPECT().Get(car2.GetRandId()).Return(car2, nil)
+		itemCacheMock.EXPECT().Get(car3.GetRandId()).Return(car3, nil)
+		itemCacheMock.EXPECT().Get(car4.GetRandId()).Return(car4, nil)
+		itemCacheMock.EXPECT().Get(car5.GetRandId()).Return(car5, nil)
+
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZRevRank(key+descendingTrailing+"createdat", references[4]).SetVal(int64(4))
+		mockedRedis.ExpectZRevRange(key+descendingTrailing+"createdat", 5, 5+itemPerPage-1).SetVal(carRandIds)
+
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCacheMock,
+		)
+
+		cars, errorFetch := pagination.FetchLinked(
+			paginationParameters,
+			references,
+			itemPerPage,
+			func(item Car, items *[]Car) {
+				// will eleminate SUV from result set
+				if item.Category != "SUV" {
+					*items = append(*items, item)
+				}
+			},
+		)
+		assert.Nil(t, errorFetch)
+		assert.Equal(t, 4, len(cars))
+		for _, item := range cars {
+			assert.NotEqual(t, "SUV", item.Category)
+		}
+	})
+	t.Run("with descend sorting on custom attribute", func(t *testing.T) {
+		itemPerPage := int64(5)
+		car1 := NewMongoItem(CarCustomDescend{Brand: "Toyota", Ranking: 1, Category: "SUV", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 3}, {Material: "Leather", Occupancy: 2}}})
+		car2 := NewMongoItem(CarCustomDescend{Brand: "Honda", Ranking: 2, Category: "Sedan", Seating: []Seater{{Material: "Fabric", Occupancy: 2}, {Material: "Fabric", Occupancy: 3}}})
+		car3 := NewMongoItem(CarCustomDescend{Brand: "Ford", Ranking: 3, Category: "Truck", Seating: []Seater{{Material: "Vinyl", Occupancy: 2}, {Material: "Vinyl", Occupancy: 2}}})
+		car4 := NewMongoItem(CarCustomDescend{Brand: "BMW", Ranking: 4, Category: "Coupe", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 2}}})
+		car5 := NewMongoItem(CarCustomDescend{Brand: "Tesla", Ranking: 5, Category: "Electric", Seating: []Seater{{Material: "Vegan Leather", Occupancy: 2}, {Material: "Vegan Leather", Occupancy: 3}}})
+
+		carRandIds := []string{
+			car5.GetRandId(),
+			car4.GetRandId(),
+			car3.GetRandId(),
+			car2.GetRandId(),
+			car1.GetRandId(),
+		}
+
+		references := []string{
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		itemCacheMock := mock_interfaces.NewMockItemCache[CarCustomDescend](ctrl)
+		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(car1, nil)
+		itemCacheMock.EXPECT().Get(car2.GetRandId()).Return(car2, nil)
+		itemCacheMock.EXPECT().Get(car3.GetRandId()).Return(car3, nil)
+		itemCacheMock.EXPECT().Get(car4.GetRandId()).Return(car4, nil)
+		itemCacheMock.EXPECT().Get(car5.GetRandId()).Return(car5, nil)
+
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZRevRank(key+descendingTrailing+"ranking", references[4]).SetVal(int64(4))
+		mockedRedis.ExpectZRevRange(key+descendingTrailing+"ranking", 5, 5+itemPerPage-1).SetVal(carRandIds)
+
+		pagination := initTestPaginationType[CarCustomDescend](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCacheMock,
+		)
+		cars, errorFetch := pagination.FetchLinked(
+			paginationParameters,
+			references,
+			itemPerPage,
+			nil,
+		)
+		assert.Nil(t, errorFetch)
+		assert.Equal(t, 5, len(cars))
+		assert.Equal(t, car5.GetRandId(), cars[0].GetRandId())
+		assert.Equal(t, car4.GetRandId(), cars[1].GetRandId())
+		assert.Equal(t, car3.GetRandId(), cars[2].GetRandId())
+		assert.Equal(t, car2.GetRandId(), cars[3].GetRandId())
+		assert.Equal(t, car1.GetRandId(), cars[4].GetRandId())
+	})
+	t.Run("with ascend sorting on default attribute", func(t *testing.T) {
+		itemPerPage := int64(5)
+		car1 := NewMongoItem(CarDefaultAscend{Brand: "Toyota", Ranking: 6, Category: "SUV", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 3}, {Material: "Leather", Occupancy: 2}}})
+		car2 := NewMongoItem(CarDefaultAscend{Brand: "Honda", Ranking: 7, Category: "Sedan", Seating: []Seater{{Material: "Fabric", Occupancy: 2}, {Material: "Fabric", Occupancy: 3}}})
+		car3 := NewMongoItem(CarDefaultAscend{Brand: "Ford", Ranking: 8, Category: "Truck", Seating: []Seater{{Material: "Vinyl", Occupancy: 2}, {Material: "Vinyl", Occupancy: 2}}})
+		car4 := NewMongoItem(CarDefaultAscend{Brand: "BMW", Ranking: 9, Category: "Coupe", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 2}}})
+		car5 := NewMongoItem(CarDefaultAscend{Brand: "Tesla", Ranking: 10, Category: "Electric", Seating: []Seater{{Material: "Vegan Leather", Occupancy: 2}, {Material: "Vegan Leather", Occupancy: 3}}})
+
+		carRandIds := []string{
+			car1.GetRandId(),
+			car2.GetRandId(),
+			car3.GetRandId(),
+			car4.GetRandId(),
+			car5.GetRandId(),
+		}
+
+		references := []string{
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		itemCacheMock := mock_interfaces.NewMockItemCache[CarDefaultAscend](ctrl)
+		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(car1, nil)
+		itemCacheMock.EXPECT().Get(car2.GetRandId()).Return(car2, nil)
+		itemCacheMock.EXPECT().Get(car3.GetRandId()).Return(car3, nil)
+		itemCacheMock.EXPECT().Get(car4.GetRandId()).Return(car4, nil)
+		itemCacheMock.EXPECT().Get(car5.GetRandId()).Return(car5, nil)
+
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZRank(key+ascendingTrailing+"createdat", references[4]).SetVal(int64(4))
+		mockedRedis.ExpectZRange(key+ascendingTrailing+"createdat", 5, 5+itemPerPage-1).SetVal(carRandIds)
+
+		pagination := initTestPaginationType[CarDefaultAscend](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCacheMock,
+		)
+		cars, errorFetch := pagination.FetchLinked(
+			paginationParameters,
+			references,
+			itemPerPage,
+			nil,
+		)
+		assert.Nil(t, errorFetch)
+		assert.Equal(t, 5, len(cars))
+		assert.Equal(t, car1.GetRandId(), cars[0].GetRandId())
+		assert.Equal(t, car2.GetRandId(), cars[1].GetRandId())
+		assert.Equal(t, car3.GetRandId(), cars[2].GetRandId())
+		assert.Equal(t, car4.GetRandId(), cars[3].GetRandId())
+		assert.Equal(t, car5.GetRandId(), cars[4].GetRandId())
+	})
+	t.Run("with ascend sorting on custom attribute", func(t *testing.T) {
+		itemPerPage := int64(5)
+		car1 := NewMongoItem(CarCustomAscend{Brand: "Toyota", Ranking: 6, Category: "SUV", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 3}, {Material: "Leather", Occupancy: 2}}})
+		car2 := NewMongoItem(CarCustomAscend{Brand: "Honda", Ranking: 7, Category: "Sedan", Seating: []Seater{{Material: "Fabric", Occupancy: 2}, {Material: "Fabric", Occupancy: 3}}})
+		car3 := NewMongoItem(CarCustomAscend{Brand: "Ford", Ranking: 8, Category: "Truck", Seating: []Seater{{Material: "Vinyl", Occupancy: 2}, {Material: "Vinyl", Occupancy: 2}}})
+		car4 := NewMongoItem(CarCustomAscend{Brand: "BMW", Ranking: 9, Category: "Coupe", Seating: []Seater{{Material: "Leather", Occupancy: 2}, {Material: "Leather", Occupancy: 2}}})
+		car5 := NewMongoItem(CarCustomAscend{Brand: "Tesla", Ranking: 10, Category: "Electric", Seating: []Seater{{Material: "Vegan Leather", Occupancy: 2}, {Material: "Vegan Leather", Occupancy: 3}}})
+
+		carRandIds := []string{
+			car1.GetRandId(),
+			car2.GetRandId(),
+			car3.GetRandId(),
+			car4.GetRandId(),
+			car5.GetRandId(),
+		}
+
+		references := []string{
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		itemCacheMock := mock_interfaces.NewMockItemCache[CarCustomAscend](ctrl)
+		itemCacheMock.EXPECT().Get(car1.GetRandId()).Return(car1, nil)
+		itemCacheMock.EXPECT().Get(car2.GetRandId()).Return(car2, nil)
+		itemCacheMock.EXPECT().Get(car3.GetRandId()).Return(car3, nil)
+		itemCacheMock.EXPECT().Get(car4.GetRandId()).Return(car4, nil)
+		itemCacheMock.EXPECT().Get(car5.GetRandId()).Return(car5, nil)
+
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZRank(key+ascendingTrailing+"ranking", references[4]).SetVal(int64(4))
+		mockedRedis.ExpectZRange(key+ascendingTrailing+"ranking", 5, 5+itemPerPage-1).SetVal(carRandIds)
+
+		pagination := initTestPaginationType[CarCustomAscend](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCacheMock,
+		)
+		cars, errorFetch := pagination.FetchLinked(
+			paginationParameters,
+			references,
+			itemPerPage,
+			nil,
+		)
+		assert.Nil(t, errorFetch)
+		assert.Equal(t, 5, len(cars))
+		assert.Equal(t, car1.GetRandId(), cars[0].GetRandId())
+		assert.Equal(t, car2.GetRandId(), cars[1].GetRandId())
+		assert.Equal(t, car3.GetRandId(), cars[2].GetRandId())
+		assert.Equal(t, car4.GetRandId(), cars[3].GetRandId())
+		assert.Equal(t, car5.GetRandId(), cars[4].GetRandId())
+	})
+	t.Run("zrank error", func(t *testing.T) {
+		itemPerPage := int64(5)
+		references := []string{
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		itemCacheMock := mock_interfaces.NewMockItemCache[CarCustomAscend](ctrl)
+
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZRank(key+ascendingTrailing+"ranking", references[4]).SetErr(errors.New("fatal error: Redis connection lost"))
+
+		pagination := initTestPaginationType[CarCustomAscend](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCacheMock,
+		)
+		cars, errorFetch := pagination.FetchLinked(
+			paginationParameters,
+			references,
+			itemPerPage,
+			nil,
+		)
+		assert.NotNil(t, errorFetch)
+		assert.Nil(t, cars)
+		assert.Equal(t, REDIS_FATAL_ERROR, errorFetch.Err)
+	})
+	t.Run("zrevrank error", func(t *testing.T) {
+		itemPerPage := int64(5)
+		references := []string{
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+			RandId(),
+		}
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		itemCacheMock := mock_interfaces.NewMockItemCache[CarCustomDescend](ctrl)
+
+		redisDB, mockedRedis := redismock.NewClientMock()
+		mockedRedis.ExpectZRank(key+descendingTrailing+"ranking", references[4]).SetErr(errors.New("fatal error: Redis connection lost"))
+
+		pagination := initTestPaginationType[CarCustomDescend](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCacheMock,
+		)
+		cars, errorFetch := pagination.FetchLinked(
+			paginationParameters,
+			references,
+			itemPerPage,
+			nil,
+		)
+		assert.NotNil(t, errorFetch)
+		assert.Nil(t, cars)
+		assert.Equal(t, REDIS_FATAL_ERROR, errorFetch.Err)
 	})
 }
-
-func TestSeedAll(t *testing.T) {}

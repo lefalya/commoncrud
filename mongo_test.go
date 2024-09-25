@@ -435,20 +435,4 @@ func TestFindMany(t *testing.T) {
 		assert.Equal(t, items[4].FirstName, dummyItem5.FirstName)
 		assert.Equal(t, items[4].LastName, dummyItem5.LastName)
 	})
-	// mt.Run("fatal error", func(mt *mtest.T) {
-	// 	mt.AddMockResponses(bson.D{{"ok", 0}})
-
-	// 	filter := bson.D{}
-	// 	findOptions := options.Find()
-	// 	findOptions.SetSort(bson.D{{"_id", -1}})
-	// 	findOptions.SetLimit(10)
-
-	// 	mongo := Mongo[TestStructMongo](logger, mt.Coll)
-	// 	items, errorUpdate := mongo.FindMany(filter, findOptions)
-
-	// 	assert.NotNil(t, errorUpdate)
-	// 	assert.Nil(t, items)
-	// 	assert.Equal(t, MONGO_FATAL_ERROR, errorUpdate.Err)
-	// 	assert.Equal(t, "findmany.find_mongodb_fatal_error", errorUpdate.Context)
-	// })
 }
