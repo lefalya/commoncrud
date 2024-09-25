@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,7 +55,9 @@ var (
 func concatKey(keyFormat string, parameters []string) string {
 	args := make([]interface{}, len(parameters))
 	for i, v := range parameters {
-		args[i] = v
+		lowercase := strings.ToLower(v)
+		dashed := strings.ReplaceAll(lowercase, " ", "-")
+		args[i] = dashed
 	}
 
 	return fmt.Sprintf(keyFormat, args...)

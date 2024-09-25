@@ -170,7 +170,7 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 				}
 			}
 		} else {
-			score = float64(item.GetCreatedAt().Unix())
+			score = float64(item.GetCreatedAt().UnixMilli())
 		}
 
 		sortedSetMember := redis.Z{

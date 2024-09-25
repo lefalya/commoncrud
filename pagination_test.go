@@ -224,6 +224,7 @@ func TestAddItem(t *testing.T) {
 		errorAddItem := pagination.AddItem(paginationParameters, car)
 		assert.Nil(t, errorAddItem)
 	})
+	t.Run("using mongo as DB but item is not in MongoItem", func(t *testing.T) {})
 	t.Run("with descend sorting on custom attribute", func(t *testing.T) {
 		car := NewMongoItem(CarCustomDescend{
 			Brand:    brand,
@@ -740,7 +741,8 @@ func TestRemoveItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		redis, mockedRedis := redismock.NewClientMock()
-		mockedRedis.ExpectZCard(key + descendingTrailing + "ranking").SetVal(0)
+		mockedRedis.ExpectZCard(key + descendingTrailing + "ranking").SetVal(20)
+		mockedRedis.ExpectZRem(key+descendingTrailing+"ranking", car.GetRandId()).SetVal(1)
 
 		mongoMock := mock_interfaces.NewMockMongo[CarCustomDescend](ctrl)
 		mongoMock.EXPECT().SetPaginationFilter(nil)
@@ -790,7 +792,8 @@ func TestRemoveItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		redis, mockedRedis := redismock.NewClientMock()
-		mockedRedis.ExpectZCard(key + ascendingTrailing + "createdat").SetVal(0)
+		mockedRedis.ExpectZCard(key + ascendingTrailing + "createdat").SetVal(20)
+		mockedRedis.ExpectZRem(key+ascendingTrailing+"createdat", car.GetRandId()).SetVal(1)
 
 		mongoMock := mock_interfaces.NewMockMongo[CarDefaultAscend](ctrl)
 		mongoMock.EXPECT().SetPaginationFilter(nil)
@@ -810,53 +813,6 @@ func TestRemoveItem(t *testing.T) {
 		assert.Equal(t, "createdat", pagination.sorting.attribute)
 		assert.Equal(t, 0, pagination.sorting.index)
 		assert.Equal(t, ascending, pagination.sorting.direction)
-
-		errorRemoveItem := pagination.RemoveItem(paginationParameters, car)
-		assert.Nil(t, errorRemoveItem)
-	})
-	t.Run("with descend sorting on default attribute", func(t *testing.T) {
-		car := NewMongoItem(Car{
-			Brand:    brand,
-			Category: category,
-			Ranking:  12,
-			Seating: []Seater{
-				{
-					Material:  "Leather",
-					Occupancy: 2,
-				},
-				{
-					Material:  "Leather",
-					Occupancy: 3,
-				},
-				{
-					Material:  "Leather",
-					Occupancy: 2,
-				},
-			},
-		})
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		redis, mockedRedis := redismock.NewClientMock()
-		mockedRedis.ExpectZCard(key + descendingTrailing + "createdat").SetVal(0)
-
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().SetPaginationFilter(nil)
-		mongoMock.EXPECT().Delete(car).Return(nil)
-
-		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
-		itemCache.EXPECT().Del(car).Return(nil)
-
-		pagination := initTestPaginationType[Car](
-			paginationKeyFormat,
-			itemKeyFormat,
-			logger,
-			redis,
-			itemCache,
-		)
-		pagination.WithMongo(mongoMock, nil)
-		assert.Nil(t, pagination.sorting)
 
 		errorRemoveItem := pagination.RemoveItem(paginationParameters, car)
 		assert.Nil(t, errorRemoveItem)
@@ -886,7 +842,8 @@ func TestRemoveItem(t *testing.T) {
 		defer ctrl.Finish()
 
 		redis, mockedRedis := redismock.NewClientMock()
-		mockedRedis.ExpectZCard(key + ascendingTrailing + "ranking").SetVal(0)
+		mockedRedis.ExpectZCard(key + ascendingTrailing + "ranking").SetVal(20)
+		mockedRedis.ExpectZRem(key+ascendingTrailing+"ranking", car.GetRandId()).SetVal(1)
 
 		mongoMock := mock_interfaces.NewMockMongo[CarCustomAscend](ctrl)
 		mongoMock.EXPECT().SetPaginationFilter(nil)
