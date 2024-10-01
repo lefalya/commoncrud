@@ -5,3 +5,9 @@ type PaginationError struct {
 	Details string
 	Message string
 }
+
+type SortingOption struct {
+	Attribute string
+	Direction string
+	Index     int
+}

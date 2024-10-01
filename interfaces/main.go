@@ -45,7 +45,7 @@ type Pagination[T Item] interface {
 		itemPerPage int64,
 		processor PaginationProcessor[T],
 	) ([]T, *types.PaginationError)
-	FetchAll(pagKeyParams []string, processor PaginationProcessor[T]) ([]T, *types.PaginationError)
+	FetchAll(pagKeyParams []string, processor PaginationProcessor[T], sortOpt *types.SortingOption) ([]T, *types.PaginationError)
 	SeedOne(randId string) (*T, *types.PaginationError)
 	SeedLinked(
 		paginationKeyParameters []string,
