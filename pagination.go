@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"reflect"
-	"strings"
 
 	"github.com/lefalya/commoncrud/interfaces"
 	"github.com/lefalya/commoncrud/types"
@@ -31,41 +30,22 @@ type PaginationType[T interfaces.Item] struct {
 	itemCache     interfaces.ItemCache[T]
 }
 
-func SetSorting[T interfaces.Item]() []types.SortingOption {
-	var sortingOpts []types.SortingOption
-
+func SetIndex[T interfaces.Item](sortOpts *[]types.SortingOption) {
 	t := reflect.TypeOf((*T)(nil)).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		sorting := f.Tag.Get("sorting")
-		splitted := strings.Split(sorting, ",")
-
-		for _, sortDir := range splitted {
-			switch sortDir {
-			case ascending, descending:
-				var sortingOpt types.SortingOption
-				sortingOpt.Index = i
-				if sortDir == ascending {
-					sortingOpt.Direction = ascending
-				} else if sortDir == descending {
-					sortingOpt.Direction = descending
+	for i := range *sortOpts {
+		sortOpt := &(*sortOpts)[i]
+		if sortOpt.Attribute == "createdat" {
+			sortOpt.Index = 0
+		} else {
+			for i := 0; i < t.NumField(); i++ {
+				f := t.Field(i)
+				if f.Tag.Get("bson") == sortOpt.Attribute || f.Tag.Get("db") == sortOpt.Attribute {
+					sortOpt.Index = i
+					break
 				}
-				if f.Name == "Item" {
-					sortingOpt.Attribute = "createdat"
-				} else if f.Tag.Get("bson") != "" {
-					sortingOpt.Attribute = f.Tag.Get("bson")
-				} else if f.Tag.Get("db") != "" {
-					sortingOpt.Attribute = f.Tag.Get("db")
-				}
-
-				sortingOpts = append(sortingOpts, sortingOpt)
-			default:
-				continue
 			}
 		}
 	}
-
-	return sortingOpts
 }
 
 func Pagination[T interfaces.Item](
@@ -73,6 +53,7 @@ func Pagination[T interfaces.Item](
 	itemKeyFormat string,
 	logger *slog.Logger,
 	redisClient redis.UniversalClient,
+	sortOpts []types.SortingOption, // atau mungkin bisa dibuat sortArgs... saja
 ) *PaginationType[T] {
 	itemCache := &ItemCacheType[T]{
 		logger:        logger,
@@ -88,10 +69,20 @@ func Pagination[T interfaces.Item](
 		itemCache:     itemCache,
 	}
 
-	sortOpt := SetSorting[T]()
-	if sortOpt != nil {
-		pagination.sorting = sortOpt
+	var validatedSortOpts []types.SortingOption
+	if sortOpts != nil {
+		SetIndex[T](&sortOpts)
+		validatedSortOpts = sortOpts
+	} else {
+		defaultSortOpt := types.SortingOption{
+			Attribute: "createdat",
+			Direction: "descending",
+			Index:     0,
+		}
+
+		validatedSortOpts = append(validatedSortOpts, defaultSortOpt)
 	}
+	pagination.sorting = validatedSortOpts
 
 	return pagination
 }
@@ -124,21 +115,45 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
-	if pg.sorting == nil {
-		defaultSortOpt := types.SortingOption{
-			Attribute: "createdat",
-			Direction: "descending",
-		}
-		pg.sorting = append(pg.sorting, defaultSortOpt)
-	}
 	for _, sortOpt := range pg.sorting {
 		var sortedSetKey string
-		if sortOpt.Direction == ascending {
+
+		// if sortOpt.Direction == descending {
+		// 	continue
+		// } else {
+		// 	sortedSetKey = key + descendingTrailing + sortOpt.Attribute
+		// }
+
+		if sortOpt.Attribute == "createdat" && sortOpt.Direction == descending {
+			sortedSetKey = key + descendingTrailing + "createdat"
+		} else if sortOpt.Attribute == "createdat" && sortOpt.Direction == ascending {
+			// remove settled key if exists
+			settledKey := key + ascendingTrailing + sortOpt.Attribute + ":settled"
+			errorDelKey := pg.redisClient.Del(context.TODO(), settledKey)
+			if errorDelKey.Err() != nil {
+				return &types.PaginationError{
+					Err:     REDIS_FATAL_ERROR,
+					Message: "failed to delete settled key",
+				}
+			}
+
 			sortedSetKey = key + ascendingTrailing + sortOpt.Attribute
-		} else if sortOpt.Direction == descending {
-			sortedSetKey = key + descendingTrailing + sortOpt.Attribute
 		} else {
-			return nil
+			// custom attribute sorting
+			if sortOpt.Direction == ascending {
+				sortedSetKey = key + ascendingTrailing + sortOpt.Attribute
+			} else if sortOpt.Direction == descending {
+				sortedSetKey = key + descendingTrailing + sortOpt.Attribute
+			}
+
+			var highestScore float64 
+			var lowestScore float64
+			
+			highestScoreKey := sortedSetKey + ":highestscore"
+			lowestScoreKey := sortedSetKey + ":lowestscore"
+
+			errorGetHighest := pg.redisClient.Get(contex.TODO(), highestScoreKey)
+			... 
 		}
 
 		totalItem := pg.redisClient.ZCard(
