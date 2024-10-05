@@ -7,7 +7,12 @@ type PaginationError struct {
 }
 
 type SortingOption struct {
-	Attribute string
-	Direction string
-	Index     int
+	Attribute               string
+	Direction               string
+	Index                   int
+	SettledKeyTrailing      string
+	CardinalityKeyTrailing  string
+	HighestScoreKeyTrailing string
+	LowestScoreKeyTrailing  string
+	SortedSetKeyTrailing    string
 }
