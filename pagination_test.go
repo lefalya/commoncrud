@@ -1,14 +1,16 @@
 package commoncrud
 
 import (
-	"log/slog"
-	"testing"
-
+	"github.com/go-redis/redismock/v9"
+	"github.com/golang/mock/gomock"
 	"github.com/lefalya/commoncrud/interfaces"
+	mock_interfaces "github.com/lefalya/commoncrud/mocks"
 	"github.com/lefalya/commoncrud/types"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
+	"log/slog"
+	"testing"
 )
 
 var (
@@ -49,6 +51,7 @@ func initTestPaginationType[T interfaces.Item](
 	logger *slog.Logger,
 	redisClient redis.UniversalClient,
 	itemCache interfaces.ItemCache[T],
+	sortOpts []types.SortingOption,
 ) *PaginationType[T] {
 	pagination := PaginationType[T]{
 		pagKeyFormat:  pagKeyFormat,
@@ -58,10 +61,20 @@ func initTestPaginationType[T interfaces.Item](
 		itemCache:     itemCache,
 	}
 
-	sortOpt := SetSorting[T]()
-	if sortOpt != nil {
-		pagination.sorting = sortOpt
+	var validatedSortOpts []types.SortingOption
+	if sortOpts != nil {
+		SetIndex[T](&sortOpts)
+		validatedSortOpts = sortOpts
+	} else {
+		defaultSortOpt := types.SortingOption{
+			Attribute: "createdat",
+			Direction: "descending",
+			Index:     0,
+		}
+
+		validatedSortOpts = append(validatedSortOpts, defaultSortOpt)
 	}
+	pagination.sorting = validatedSortOpts
 
 	return &pagination
 }
@@ -80,33 +93,6 @@ type Car struct {
 	Seating  []Seater `bson:"seating"`
 }
 
-// type CarCustomDescend struct {
-// 	*Item
-// 	*MongoItem
-// 	Ranking  int64    `bson:"ranking" sorting:"descending"`
-// 	Brand    string   `bson:"brand"`
-// 	Category string   `bson:"category"`
-// 	Seating  []Seater `bson:"seating"`
-// }
-
-// type CarDefaultAscend struct {
-// 	*Item `sorting:"ascending"`
-// 	*MongoItem
-// 	Ranking  int64    `bson:"ranking"`
-// 	Brand    string   `bson:"brand"`
-// 	Category string   `bson:"category"`
-// 	Seating  []Seater `bson:"seating"`
-// }
-
-// type CarCustomAscend struct {
-// 	*Item
-// 	*MongoItem
-// 	Ranking  int64    `bson:"ranking" sorting:"ascending"`
-// 	Brand    string   `bson:"brand"`
-// 	Category string   `bson:"category"`
-// 	Seating  []Seater `bson:"seating"`
-// }
-
 // func TestInjectPagination(t *testing.T) {
 // 	type Injected[T interfaces.Item] struct {
 // 		pagination interfaces.Pagination[T]
@@ -121,10 +107,13 @@ type Car struct {
 // }
 
 func TestInitPagiantion(t *testing.T) {
-	t.Run("init pagination with no specified sortOpt (default)", func(t *testing.T) {
+	t.Run("init pagination with default sortOpt", func(t *testing.T) {
 		pagination := Pagination[Car]("", "", nil, nil, nil)
 		assert.NotNil(t, pagination)
 		assert.Equal(t, 1, len(pagination.sorting))
+		assert.Equal(t, descending, pagination.sorting[0].Direction)
+		assert.Equal(t, "createdat", pagination.sorting[0].Attribute)
+		assert.Equal(t, descendingTrailing+"createdat", pagination.sorting[0].SortedSetKeyTrailing)
 	})
 	t.Run("init pagination with sorted custom attribute", func(t *testing.T) {
 
@@ -135,11 +124,18 @@ func TestInitPagiantion(t *testing.T) {
 		assert.NotNil(t, pagination)
 		assert.Equal(t, 2, len(pagination.sorting))
 		assert.Equal(t, descending, pagination.sorting[0].Direction)
-		assert.Equal(t, ascending, pagination.sorting[1].Direction)
 		assert.Equal(t, "ranking", pagination.sorting[0].Attribute)
+		assert.Equal(t, descendingTrailing+"ranking", pagination.sorting[0].SortedSetKeyTrailing)
+		assert.Equal(t, descendingTrailing+"ranking:lowestscore", pagination.sorting[0].LowestScoreKeyTrailing)
+		assert.Equal(t, "", pagination.sorting[0].HighestScoreKeyTrailing)
+		assert.Equal(t, ascending, pagination.sorting[1].Direction)
 		assert.Equal(t, "ranking", pagination.sorting[1].Attribute)
+		assert.Equal(t, ascendingTrailing+"ranking", pagination.sorting[1].SortedSetKeyTrailing)
+		assert.Equal(t, ascendingTrailing+"ranking:highestscore", pagination.sorting[1].HighestScoreKeyTrailing)
+		assert.Equal(t, "", pagination.sorting[1].LowestScoreKeyTrailing)
+
 	})
-	t.Run("init pagination with sorted createdAt", func(t *testing.T) {
+	t.Run("init pagination with createdAt ascending", func(t *testing.T) {
 		createdAtAscending := types.SortingOption{Attribute: "createdat", Direction: ascending}
 
 		pagination := Pagination[Car]("", "", nil, nil, []types.SortingOption{createdAtAscending})
@@ -151,7 +147,51 @@ func TestInitPagiantion(t *testing.T) {
 }
 
 func TestAddItem(t *testing.T) {
+	// createdAt sorting
+	t.Run("(default sortOpt) successfully add item", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
+		// mongo expectations
+		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
+		mongoMock.EXPECT().SetPaginationFilter(nil)
+		mongoMock.EXPECT().Create(car).Return(nil)
+
+		// itemcache expectations
+		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCache.EXPECT().Set(car).Return(nil)
+
+		// redis expectations
+		redis, mockRedis := redismock.NewClientMock()
+		mockRedis.ExpectZCard(key + descendingTrailing + "createdat").SetVal(3)
+		mockRedis.ExpectZAdd(key + descendingTrailing + "createdat").SetVal(1)
+		mockRedis.ExpectExpire(key+descendingTrailing+"createdat", SORTED_SET_TTL).SetVal(true)
+
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redis,
+			itemCache,
+			nil,
+		)
+		pagination.WithMongo(mongoMock, nil)
+		errorAddItem := pagination.AddItem(paginationParameters, car)
+		assert.Nil(t, errorAddItem)
+	})
+	t.Run("(createdAt sortOpt) successfully add item with createdAt sortOpt", func(t *testing.T) {})
+	t.Run("(createdAt sortOpt) totalItem lower than cardinality", func(t *testing.T) {})
+	// custom sorting
+	t.Run("(custom sortOpt) successfully add item with custom sortOpt ascending", func(t *testing.T) {
+
+	})
+	t.Run("(custom sortOpt) successfully add item with custom sortOpt descending", func(t *testing.T) {
+
+	})
+	t.Run("(custom sortOpt) attribute value nil", func(t *testing.T) {})
+	t.Run("(custom sortOpt) attribute value exists but not in numerical datatype", func(t *testing.T) {})
+	t.Run("(custom sortOpt) highestScoreKey not found", func(t *testing.T) {})
+	t.Run("(custom sortOpt) lowestScoreKey not found", func(t *testing.T) {})
 }
 
 /*

@@ -438,18 +438,18 @@ func (mr *MockPaginationMockRecorder[T]) AddItem(pagKeyParams, item interface{})
 }
 
 // FetchAll mocks base method.
-func (m *MockPagination[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T]) ([]T, *types.PaginationError) {
+func (m *MockPagination[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T], sortOpt *types.SortingOption) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FetchAll", pagKeyParams, processor)
+	ret := m.ctrl.Call(m, "FetchAll", pagKeyParams, processor, sortOpt)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
 // FetchAll indicates an expected call of FetchAll.
-func (mr *MockPaginationMockRecorder[T]) FetchAll(pagKeyParams, processor interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) FetchAll(pagKeyParams, processor, sortOpt interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchAll", reflect.TypeOf((*MockPagination[T])(nil).FetchAll), pagKeyParams, processor)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchAll", reflect.TypeOf((*MockPagination[T])(nil).FetchAll), pagKeyParams, processor, sortOpt)
 }
 
 // FetchLinked mocks base method.
@@ -509,6 +509,20 @@ func (m *MockPagination[T]) SeedAll(paginationKeyParameters []string, processor 
 func (mr *MockPaginationMockRecorder[T]) SeedAll(paginationKeyParameters, processor interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedAll", reflect.TypeOf((*MockPagination[T])(nil).SeedAll), paginationKeyParameters, processor)
+}
+
+// SeedCardinality mocks base method.
+func (m *MockPagination[T]) SeedCardinality(pagKeyParams []string) *types.PaginationError {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SeedCardinality", pagKeyParams)
+	ret0, _ := ret[0].(*types.PaginationError)
+	return ret0
+}
+
+// SeedCardinality indicates an expected call of SeedCardinality.
+func (mr *MockPaginationMockRecorder[T]) SeedCardinality(pagKeyParams interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedCardinality", reflect.TypeOf((*MockPagination[T])(nil).SeedCardinality), pagKeyParams)
 }
 
 // SeedLinked mocks base method.
@@ -668,6 +682,21 @@ func NewMockMongo[T interfaces.Item](ctrl *gomock.Controller) *MockMongo[T] {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMongo[T]) EXPECT() *MockMongoMockRecorder[T] {
 	return m.recorder
+}
+
+// Count mocks base method.
+func (m *MockMongo[T]) Count(filter bson.D, pagination interfaces.Pagination[T], paginationParameters []string) (int64, *types.PaginationError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Count", filter, pagination, paginationParameters)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(*types.PaginationError)
+	return ret0, ret1
+}
+
+// Count indicates an expected call of Count.
+func (mr *MockMongoMockRecorder[T]) Count(filter, pagination, paginationParameters interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Count", reflect.TypeOf((*MockMongo[T])(nil).Count), filter, pagination, paginationParameters)
 }
 
 // Create mocks base method.

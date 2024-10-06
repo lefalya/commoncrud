@@ -53,11 +53,11 @@ func SetIndex[T interfaces.Item](sortOpts *[]types.SortingOption) {
 
 					if sortOpt.Direction == ascending {
 						sortOpt.SortedSetKeyTrailing = ascendingTrailing + sortOpt.Attribute
+						sortOpt.HighestScoreKeyTrailing = sortOpt.SortedSetKeyTrailing + ":highestscore"
 					} else {
 						sortOpt.SortedSetKeyTrailing = descendingTrailing + sortOpt.Attribute
+						sortOpt.LowestScoreKeyTrailing = sortOpt.SortedSetKeyTrailing + ":lowestscore"
 					}
-					sortOpt.HighestScoreKeyTrailing = sortOpt.SortedSetKeyTrailing + ":highestscore"
-					sortOpt.LowestScoreKeyTrailing = sortOpt.SortedSetKeyTrailing + ":lowestscore"
 
 					break
 				}
@@ -92,13 +92,16 @@ func Pagination[T interfaces.Item](
 		SetIndex[T](&sortOpts)
 		validatedSortOpts = sortOpts
 	} else {
-		defaultSortOpt := types.SortingOption{
-			Attribute: "createdat",
-			Direction: "descending",
-			Index:     0,
+		defaultSortOpt := []types.SortingOption{
+			{
+				Attribute: "createdat",
+				Direction: "descending",
+				Index:     0,
+			},
 		}
 
-		validatedSortOpts = append(validatedSortOpts, defaultSortOpt)
+		SetIndex[T](&defaultSortOpt)
+		validatedSortOpts = append(validatedSortOpts, defaultSortOpt[0])
 	}
 	pagination.sorting = validatedSortOpts
 
@@ -134,69 +137,6 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
 	for _, sortOpt := range pg.sorting {
-
-		//if sortOpt.Attribute == "createdat" && sortOpt.Direction == descending {
-		//	sortedSetKey = key + descendingTrailing + "createdat"
-		//} else if sortOpt.Attribute == "createdat" && sortOpt.Direction == ascending {
-		//	// remove settled key if exists
-		//
-		//	settledKey := key + ascendingTrailing + sortOpt.Attribute + ":settled"
-		//	errorDelKey := pg.redisClient.Del(context.TODO(), settledKey)
-		//	if errorDelKey.Err() != nil {
-		//		return &types.PaginationError{
-		//			Err:     REDIS_FATAL_ERROR,
-		//			Message: "failed to delete settled key",
-		//		}
-		//	}
-		//
-		//	sortedSetKey = key + ascendingTrailing + sortOpt.Attribute
-		//} else {
-		//	// custom attribute sorting
-		//	if sortOpt.Direction == ascending {
-		//		sortedSetKey = key + ascendingTrailing + sortOpt.Attribute
-		//	} else if sortOpt.Direction == descending {
-		//		sortedSetKey = key + descendingTrailing + sortOpt.Attribute
-		//	}
-		//
-		//	value := reflect.ValueOf(&item).Elem().Field(sortOpt.Index).Interface()
-		//	if value != nil {
-		//		switch v := value.(type) {
-		//		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32:
-		//			score = float64(v.(int64))
-		//		case float64:
-		//			score = v
-		//		default:
-		//			return &types.PaginationError{
-		//				Err:     MUST_BE_NUMERICAL_DATATYPE,
-		//				Message: "Cannot use assigned attribute value for sorting due to its invalid datatype.",
-		//			}
-		//		}
-		//	} else {
-		//		return &types.PaginationError{
-		//			Err: FOUND_SORTING_BUT_NO_VALUE,
-		//		}
-		//	}
-		//
-		//	var highestScore float64
-		//	var lowestScore float64
-		//
-		//	highestScoreKey := sortedSetKey + ":highestscore"
-		//	errorGetHighest := pg.redisClient.Get(contex.TODO(), highestScoreKey)
-		//	if errorGetHighest.Err() != nil {
-		//		// restart sorted set
-		//	}
-		//
-		//	lowestScoreKey := sortedSetKey + ":lowestscore"
-		//	errorGetLowest := pg.redisClient.Get(context.TODO(), lowestScoreKey)
-		//	if errorGetLowest.Err() != nil {
-		//		// restart sorted set
-		//	}
-		//
-		//	if score <= highestScore && score >= lowestScore {
-		//
-		//	}
-		//}
-
 		totalItem := pg.redisClient.ZCard(
 			context.TODO(),
 			key+sortOpt.SortedSetKeyTrailing,
@@ -212,12 +152,14 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 		// only add item to sorted set, if the sorted set exists
 		if totalItem.Val() > 0 {
 			var score float64
-			addToSortedSet := true
-
+			addToSortedSet := false
+			// sort createdAt ascending
 			if sortOpt.Attribute == "createdat" && sortOpt.Direction == ascending {
 				cardinalityFromRedis := pg.redisClient.Get(context.TODO(), key+sortOpt.CardinalityKeyTrailing)
 				if cardinalityFromRedis.Err() != nil {
-					// reset sorted set or reingest cardinality
+					if cardinalityFromRedis.Err() == redis.Nil {
+						// TODO: reingest cardinality but if reingestion failed then return redis fatal error
+					}
 					return &types.PaginationError{
 						Err:     REDIS_FATAL_ERROR,
 						Details: cardinalityFromRedis.Err().Error(),
@@ -227,7 +169,7 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 
 				cardinality, errorParseInt := strconv.ParseInt(cardinalityFromRedis.Val(), 10, 64)
 				if errorParseInt != nil {
-					// reset sorted set or reingest cardinality
+					// TODO: reingest cardinality but if reingestion failed then return redis fatal error
 					return &types.PaginationError{
 						Err:     REDIS_FATAL_ERROR,
 						Details: cardinalityFromRedis.Err().Error(),
@@ -236,12 +178,12 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 				}
 
 				if totalItem.Val() == cardinality {
+					addToSortedSet = true
 					score = float64(item.GetCreatedAt().UnixMilli())
 				} else {
-					addToSortedSet = false
 					deleteSettledKey := pg.redisClient.Del(context.TODO(), key+sortOpt.SettledKeyTrailing)
 					if deleteSettledKey.Err() != nil {
-						// decide wether to remove the whole sorted set if error occurs
+						// TODO: remove sorted set
 						return &types.PaginationError{
 							Err:     REDIS_FATAL_ERROR,
 							Details: deleteSettledKey.Err().Error(),
@@ -249,8 +191,64 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 						}
 					}
 				}
-			} else {
+				// sort custom attribute
+			} else if sortOpt.Attribute != "createdat" {
+				value := reflect.ValueOf(&item).Elem().Field(sortOpt.Index).Interface()
+				if value != nil {
+					switch v := value.(type) {
+					case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32:
+						score = float64(v.(int64))
+					case float64:
+						score = v
+					default:
+						return &types.PaginationError{
+							Err:     MUST_BE_NUMERICAL_DATATYPE,
+							Message: "Cannot use assigned attribute value for sorting due to its invalid datatype.",
+						}
+					}
+				} else {
+					return &types.PaginationError{
+						Err: FOUND_SORTING_BUT_NO_VALUE,
+					}
+				}
 
+				var highestScore float64
+				var lowestScore float64
+
+				highestScoreKey := key + sortOpt.HighestScoreKeyTrailing
+				errorGetHighest := pg.redisClient.Get(context.TODO(), highestScoreKey)
+				if errorGetHighest.Err() != nil {
+					if errorGetHighest.Err() == redis.Nil {
+						// TODO remove sorted set
+					}
+					return &types.PaginationError{
+						Err:     REDIS_FATAL_ERROR,
+						Details: errorGetHighest.Err().Error(),
+						Message: "Failed to get highest score of custom attribute sorted set",
+					}
+				}
+
+				lowestScoreKey := key + sortOpt.LowestScoreKeyTrailing
+				errorGetLowest := pg.redisClient.Get(context.TODO(), lowestScoreKey)
+				if errorGetLowest.Err() != nil {
+					if errorGetLowest.Err() == redis.Nil {
+						// TODO remove sorted set
+					}
+					return &types.PaginationError{
+						Err:     REDIS_FATAL_ERROR,
+						Details: errorGetLowest.Err().Error(),
+						Message: "Failed to get lowest score of custom attribute sorted set",
+					}
+				}
+
+				if sortOpt.Direction == ascending && score <= highestScore {
+					addToSortedSet = true
+				} else if sortOpt.Direction == descending && score >= lowestScore {
+					addToSortedSet = true
+				}
+			} else {
+				// createdat & descending
+				addToSortedSet = true
 			}
 
 			if addToSortedSet {

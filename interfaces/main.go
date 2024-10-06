@@ -54,6 +54,7 @@ type Pagination[T Item] interface {
 		processor SeedProcessor[T],
 	) ([]T, *types.PaginationError)
 	SeedAll(paginationKeyParameters []string, processor SeedProcessor[T]) ([]T, *types.PaginationError)
+	SeedCardinality(pagKeyParams []string) *types.PaginationError
 }
 
 type PaginationProcessor[T Item] func(item T, items *[]T)
@@ -75,6 +76,7 @@ type Mongo[T Item] interface {
 		pagKeyParams []string,
 		seedProcessor SeedProcessor[T],
 	) ([]T, *types.PaginationError)
+	Count(filter bson.D, pagination Pagination[T], paginationParameters []string) (int64, *types.PaginationError)
 	Update(item T) *types.PaginationError
 	Delete(item T) *types.PaginationError
 	SetPaginationFilter(filter bson.A)

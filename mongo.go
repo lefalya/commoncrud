@@ -164,6 +164,27 @@ func (mo *MongoType[T]) FindMany(
 	return results, nil
 }
 
+func (mo *MongoType[T]) Count(
+	filter bson.D,
+	pagination interfaces.Pagination[T],
+	paginationParameters []string,
+) (int64, *types.PaginationError) {
+
+	count, err := mo.collection.CountDocuments(
+		context.TODO(),
+		filter,
+	)
+
+	if err != nil {
+		return 0, &types.PaginationError{
+			Err:     MONGO_FATAL_ERROR,
+			Details: err.Error(),
+		}
+	}
+
+	return count, nil
+}
+
 func (mo *MongoType[T]) Update(item T) *types.PaginationError {
 	filter := bson.D{{"uuid", item.GetUUID()}}
 
