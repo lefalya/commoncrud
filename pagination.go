@@ -148,7 +148,6 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 				Message: "Failed to count total items on Redis",
 			}
 		}
-
 		// only add item to sorted set, if the sorted set exists
 		if totalItem.Val() > 0 {
 			var score float64
@@ -212,43 +211,52 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 					}
 				}
 
-				var highestScore float64
-				var lowestScore float64
+				//var highestScore float64
+				//var lowestScore float64
+				var thresholdScore float64
+				var scoreKey string
+				var errorMessage string
 
-				highestScoreKey := key + sortOpt.HighestScoreKeyTrailing
-				errorGetHighest := pg.redisClient.Get(context.TODO(), highestScoreKey)
-				if errorGetHighest.Err() != nil {
-					if errorGetHighest.Err() == redis.Nil {
+				if sortOpt.Direction == ascending {
+					scoreKey = key + sortOpt.HighestScoreKeyTrailing
+					errorMessage = "Failed to get highest score of custom attribute sorted set"
+				} else if sortOpt.Direction == descending {
+					scoreKey = key + sortOpt.LowestScoreKeyTrailing
+					errorMessage = "Failed to get lowest score of custom attribute sorted set"
+				}
+
+				errorGetThreshold := pg.redisClient.Get(context.TODO(), scoreKey)
+				if errorGetThreshold.Err() != nil {
+					if errorGetThreshold.Err() == redis.Nil {
 						// TODO remove sorted set
 					}
 					return &types.PaginationError{
 						Err:     REDIS_FATAL_ERROR,
-						Details: errorGetHighest.Err().Error(),
-						Message: "Failed to get highest score of custom attribute sorted set",
+						Details: errorGetThreshold.Err().Error(),
+						Message: errorMessage,
 					}
 				}
 
-				lowestScoreKey := key + sortOpt.LowestScoreKeyTrailing
-				errorGetLowest := pg.redisClient.Get(context.TODO(), lowestScoreKey)
-				if errorGetLowest.Err() != nil {
-					if errorGetLowest.Err() == redis.Nil {
-						// TODO remove sorted set
-					}
+				thresholdScore, errorParseFloat := strconv.ParseFloat(errorGetThreshold.Val(), 64)
+				if errorParseFloat != nil {
+					// TODO: remove sorted set
 					return &types.PaginationError{
 						Err:     REDIS_FATAL_ERROR,
-						Details: errorGetLowest.Err().Error(),
-						Message: "Failed to get lowest score of custom attribute sorted set",
+						Details: errorParseFloat.Error(),
+						Message: "Failed to parse threshold score on Redis",
 					}
 				}
 
-				if sortOpt.Direction == ascending && score <= highestScore {
+				if sortOpt.Direction == ascending && score <= thresholdScore {
 					addToSortedSet = true
-				} else if sortOpt.Direction == descending && score >= lowestScore {
+				} else if sortOpt.Direction == descending && score >= thresholdScore {
 					addToSortedSet = true
 				}
+
 			} else {
 				// createdat & descending
 				addToSortedSet = true
+				score = float64(item.GetCreatedAt().UnixMilli())
 			}
 
 			if addToSortedSet {

@@ -19,6 +19,7 @@ var (
 	car      = NewMongoItem(Car{
 		Brand:    brand,
 		Category: category,
+		Ranking:  4,
 		Seating: []Seater{
 			{
 				Material:  "Leather",
@@ -66,13 +67,16 @@ func initTestPaginationType[T interfaces.Item](
 		SetIndex[T](&sortOpts)
 		validatedSortOpts = sortOpts
 	} else {
-		defaultSortOpt := types.SortingOption{
-			Attribute: "createdat",
-			Direction: "descending",
-			Index:     0,
+		defaultSortOpt := []types.SortingOption{
+			{
+				Attribute: "createdat",
+				Direction: "descending",
+				Index:     0,
+			},
 		}
 
-		validatedSortOpts = append(validatedSortOpts, defaultSortOpt)
+		SetIndex[T](&defaultSortOpt)
+		validatedSortOpts = append(validatedSortOpts, defaultSortOpt[0])
 	}
 	pagination.sorting = validatedSortOpts
 
@@ -162,16 +166,20 @@ func TestAddItem(t *testing.T) {
 		itemCache.EXPECT().Set(car).Return(nil)
 
 		// redis expectations
-		redis, mockRedis := redismock.NewClientMock()
+		redisDB, mockRedis := redismock.NewClientMock()
 		mockRedis.ExpectZCard(key + descendingTrailing + "createdat").SetVal(3)
-		mockRedis.ExpectZAdd(key + descendingTrailing + "createdat").SetVal(1)
+		expectedZMember := redis.Z{
+			Score:  float64(car.GetCreatedAt().UnixMilli()),
+			Member: car.GetRandId(),
+		}
+		mockRedis.ExpectZAdd(key+descendingTrailing+"createdat", expectedZMember).SetVal(1)
 		mockRedis.ExpectExpire(key+descendingTrailing+"createdat", SORTED_SET_TTL).SetVal(true)
 
 		pagination := initTestPaginationType[Car](
 			paginationKeyFormat,
 			itemKeyFormat,
 			logger,
-			redis,
+			redisDB,
 			itemCache,
 			nil,
 		)
@@ -179,14 +187,149 @@ func TestAddItem(t *testing.T) {
 		errorAddItem := pagination.AddItem(paginationParameters, car)
 		assert.Nil(t, errorAddItem)
 	})
-	t.Run("(createdAt sortOpt) successfully add item with createdAt sortOpt", func(t *testing.T) {})
-	t.Run("(createdAt sortOpt) totalItem lower than cardinality", func(t *testing.T) {})
+	t.Run("(createdAt ascending) successfully add item with createdAt ascending", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		// mongo expectations
+		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
+		mongoMock.EXPECT().SetPaginationFilter(nil)
+		mongoMock.EXPECT().Create(car).Return(nil)
+
+		// itemcache expectations
+		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCache.EXPECT().Set(car).Return(nil)
+
+		redisDB, mockRedis := redismock.NewClientMock()
+		mockRedis.ExpectZCard(key + ascendingTrailing + "createdat").SetVal(3)
+		mockRedis.ExpectGet(key + ascendingTrailing + "createdat" + ":cardinality").SetVal("3")
+		expectedZMember := redis.Z{
+			Score:  float64(car.GetCreatedAt().UnixMilli()),
+			Member: car.GetRandId(),
+		}
+		mockRedis.ExpectZAdd(key+ascendingTrailing+"createdat", expectedZMember).SetVal(1)
+		mockRedis.ExpectExpire(key+ascendingTrailing+"createdat", SORTED_SET_TTL).SetVal(true)
+
+		createdAtAscending := types.SortingOption{Attribute: "createdat", Direction: ascending}
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCache,
+			[]types.SortingOption{createdAtAscending},
+		)
+		pagination.WithMongo(mongoMock, nil)
+		errorAddItem := pagination.AddItem(paginationParameters, car)
+		assert.Nil(t, errorAddItem)
+	})
+	t.Run("(createdAt ascending) totalItem lower than cardinality", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		// mongo expectations
+		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
+		mongoMock.EXPECT().SetPaginationFilter(nil)
+		mongoMock.EXPECT().Create(car).Return(nil)
+
+		// itemcache expectations
+		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCache.EXPECT().Set(car).Return(nil)
+
+		redisDB, mockRedis := redismock.NewClientMock()
+		mockRedis.ExpectZCard(key + ascendingTrailing + "createdat").SetVal(3)
+		mockRedis.ExpectGet(key + ascendingTrailing + "createdat" + ":cardinality").SetVal("2")
+		mockRedis.ExpectDel(key + ascendingTrailing + "createdat" + ":settled").SetVal(1)
+
+		createdAtAscending := types.SortingOption{Attribute: "createdat", Direction: ascending}
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCache,
+			[]types.SortingOption{createdAtAscending},
+		)
+		pagination.WithMongo(mongoMock, nil)
+
+		errorAddItem := pagination.AddItem(paginationParameters, car)
+		assert.Nil(t, errorAddItem)
+	})
 	// custom sorting
 	t.Run("(custom sortOpt) successfully add item with custom sortOpt ascending", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
+		// mongo expectations
+		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
+		mongoMock.EXPECT().SetPaginationFilter(nil)
+		mongoMock.EXPECT().Create(car).Return(nil)
+
+		// itemcache expectations
+		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCache.EXPECT().Set(car).Return(nil)
+
+		redisDB, mockRedis := redismock.NewClientMock()
+		mockRedis.ExpectZCard(key + ascendingTrailing + "ranking").SetVal(3)
+		mockRedis.ExpectGet(key + ascendingTrailing + "ranking" + ":highestscore").SetVal("10")
+		car.Ranking = 4
+		expectedZMember := redis.Z{
+			Score:  float64(car.Ranking),
+			Member: car.GetRandId(),
+		}
+		mockRedis.ExpectZAdd(key+ascendingTrailing+"ranking", expectedZMember).SetVal(1)
+		mockRedis.ExpectExpire(key+ascendingTrailing+"ranking", SORTED_SET_TTL).SetVal(true)
+
+		rankingAscending := types.SortingOption{Attribute: "ranking", Direction: ascending}
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCache,
+			[]types.SortingOption{rankingAscending},
+		)
+		pagination.WithMongo(mongoMock, nil)
+		errorAddItem := pagination.AddItem(paginationParameters, car)
+		assert.Nil(t, errorAddItem)
 	})
 	t.Run("(custom sortOpt) successfully add item with custom sortOpt descending", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
+		car.Ranking = 89
+
+		// mongo expectations
+		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
+		mongoMock.EXPECT().SetPaginationFilter(nil)
+		mongoMock.EXPECT().Create(car).Return(nil)
+
+		// itemcache expectations
+		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
+		itemCache.EXPECT().Set(car).Return(nil)
+
+		redisDB, mockRedis := redismock.NewClientMock()
+		mockRedis.ExpectZCard(key + descendingTrailing + "ranking").SetVal(3)
+		mockRedis.ExpectGet(key + descendingTrailing + "ranking" + ":lowestscore").SetVal("50")
+		expectedZMember := redis.Z{
+			Score:  float64(car.Ranking),
+			Member: car.GetRandId(),
+		}
+		mockRedis.ExpectZAdd(key+descendingTrailing+"ranking", expectedZMember).SetVal(1)
+		mockRedis.ExpectExpire(key+descendingTrailing+"ranking", SORTED_SET_TTL).SetVal(true)
+
+		rankingAscending := types.SortingOption{Attribute: "ranking", Direction: descending}
+		pagination := initTestPaginationType[Car](
+			paginationKeyFormat,
+			itemKeyFormat,
+			logger,
+			redisDB,
+			itemCache,
+			[]types.SortingOption{rankingAscending},
+		)
+		pagination.WithMongo(mongoMock, nil)
+		errorAddItem := pagination.AddItem(paginationParameters, car)
+		assert.Nil(t, errorAddItem)
 	})
 	t.Run("(custom sortOpt) attribute value nil", func(t *testing.T) {})
 	t.Run("(custom sortOpt) attribute value exists but not in numerical datatype", func(t *testing.T) {})
