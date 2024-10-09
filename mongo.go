@@ -149,7 +149,7 @@ func (mo *MongoType[T]) FindMany(
 			item.SetUpdatedAt(parsedTime)
 		}
 
-		pagination.AddItem(paginationParameters, item)
+		pagination.AddItem(item, paginationParameters...)
 
 		// During the seeding process, the processor functions solely as an item modifier/processor.
 		// In contrast, during the fetching process, the processor also evaluates whether

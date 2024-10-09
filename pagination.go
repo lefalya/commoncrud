@@ -9,7 +9,6 @@ import (
 	"github.com/lefalya/commoncrud/interfaces"
 	"github.com/lefalya/commoncrud/types"
 	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 const (
@@ -22,98 +21,101 @@ const (
 )
 
 type PaginationType[T interfaces.Item] struct {
-	pagKeyFormat  string
-	itemKeyFormat string
-	logger        *slog.Logger
-	redisClient   redis.UniversalClient
-	sorting       []types.SortingOption
-	mongo         interfaces.Mongo[T]
-	itemCache     interfaces.ItemCache[T]
-}
-
-func SetIndex[T interfaces.Item](sortOpts *[]types.SortingOption) {
-	t := reflect.TypeOf((*T)(nil)).Elem()
-	for i := range *sortOpts {
-		sortOpt := &(*sortOpts)[i]
-		if sortOpt.Attribute == "createdat" {
-			sortOpt.Index = 0
-			if sortOpt.Direction == ascending {
-				sortOpt.SortedSetKeyTrailing = ascendingTrailing + "createdat"
-				sortOpt.SettledKeyTrailing = sortOpt.SortedSetKeyTrailing + ":settled"
-				sortOpt.CardinalityKeyTrailing = sortOpt.SortedSetKeyTrailing + ":cardinality"
-			} else {
-				sortOpt.SortedSetKeyTrailing = descendingTrailing + "createdat"
-			}
-
-		} else {
-			for i := 0; i < t.NumField(); i++ {
-				f := t.Field(i)
-				if f.Tag.Get("bson") == sortOpt.Attribute || f.Tag.Get("db") == sortOpt.Attribute {
-					sortOpt.Index = i
-
-					if sortOpt.Direction == ascending {
-						sortOpt.SortedSetKeyTrailing = ascendingTrailing + sortOpt.Attribute
-						sortOpt.HighestScoreKeyTrailing = sortOpt.SortedSetKeyTrailing + ":highestscore"
-					} else {
-						sortOpt.SortedSetKeyTrailing = descendingTrailing + sortOpt.Attribute
-						sortOpt.LowestScoreKeyTrailing = sortOpt.SortedSetKeyTrailing + ":lowestscore"
-					}
-
-					break
-				}
-			}
-		}
-	}
+	logger                  *slog.Logger
+	redisClient             redis.UniversalClient
+	filter                  []string
+	mongo                   interfaces.Mongo[T]
+	itemCache               interfaces.ItemCache[T]
+	itemKeyFormat           string
+	attribute               string
+	direction               string
+	paginationRedisFormat   string
+	paginationFilter        []string
+	index                   int
+	settledKeyTrailing      string
+	cardinalityKeyTrailing  string
+	highestScoreKeyTrailing string
+	lowestScoreKeyTrailing  string
+	sortedSetKeyTrailing    string
 }
 
 func Pagination[T interfaces.Item](
-	pagKeyFormat string,
-	itemKeyFormat string,
+	entityName string,
+	attribute string,
+	order string,
+	filterBy []string,
+	suffix string,
 	logger *slog.Logger,
 	redisClient redis.UniversalClient,
-	sortOpts []types.SortingOption, // atau mungkin bisa dibuat sortArgs... saja
 ) *PaginationType[T] {
 	itemCache := &ItemCacheType[T]{
 		logger:        logger,
 		redisClient:   redisClient,
-		itemKeyFormat: itemKeyFormat,
+		itemKeyFormat: attribute + ":%s",
 	}
+
+	var middleKey string
+	var keyFormat string
+	for _, filter := range filterBy {
+		middleKey += ":" + filter + ":%s"
+	}
+
+	var formattedSuffix string
+	if suffix != "" {
+		formattedSuffix = ":" + suffix
+	}
+
+	keyFormat = entityName + middleKey + formattedSuffix
 
 	pagination := &PaginationType[T]{
-		pagKeyFormat:  pagKeyFormat,
-		itemKeyFormat: itemKeyFormat,
-		logger:        logger,
-		redisClient:   redisClient,
-		itemCache:     itemCache,
+		attribute:             attribute,
+		direction:             order,
+		paginationRedisFormat: keyFormat,
+		logger:                logger,
+		redisClient:           redisClient,
+		itemCache:             itemCache,
+		filter:                filterBy,
 	}
 
-	var validatedSortOpts []types.SortingOption
-	if sortOpts != nil {
-		SetIndex[T](&sortOpts)
-		validatedSortOpts = sortOpts
-	} else {
-		defaultSortOpt := []types.SortingOption{
-			{
-				Attribute: "createdat",
-				Direction: "descending",
-				Index:     0,
-			},
+	t := reflect.TypeOf((*T)(nil)).Elem()
+
+	if pagination.attribute == "createdat" {
+		pagination.index = 0
+		if pagination.direction == ascending {
+			pagination.sortedSetKeyTrailing = ascendingTrailing + "createdat" + formattedSuffix
+			pagination.settledKeyTrailing = pagination.sortedSetKeyTrailing + ":settled"
+			pagination.cardinalityKeyTrailing = pagination.sortedSetKeyTrailing + ":cardinality"
+		} else {
+			pagination.sortedSetKeyTrailing = descendingTrailing + "createdat" + formattedSuffix
 		}
 
-		SetIndex[T](&defaultSortOpt)
-		validatedSortOpts = append(validatedSortOpts, defaultSortOpt[0])
+	} else {
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			if f.Tag.Get("bson") == pagination.attribute || f.Tag.Get("db") == pagination.attribute {
+				pagination.index = i
+
+				if pagination.direction == ascending {
+					pagination.sortedSetKeyTrailing = ascendingTrailing + pagination.attribute + formattedSuffix
+					pagination.highestScoreKeyTrailing = pagination.sortedSetKeyTrailing + ":highestscore"
+				} else {
+					pagination.sortedSetKeyTrailing = descendingTrailing + pagination.attribute + formattedSuffix
+					pagination.lowestScoreKeyTrailing = pagination.sortedSetKeyTrailing + ":lowestscore"
+				}
+
+				break
+			}
+		}
 	}
-	pagination.sorting = validatedSortOpts
 
 	return pagination
 }
 
-func (pg *PaginationType[T]) WithMongo(mongo interfaces.Mongo[T], paginationFilter bson.A) {
+func (pg *PaginationType[T]) WithMongo(mongo interfaces.Mongo[T]) {
 	pg.mongo = mongo
-	pg.mongo.SetPaginationFilter(paginationFilter)
 }
 
-func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.PaginationError {
+func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *types.PaginationError {
 	if pg.mongo != nil {
 		err := pg.mongo.Create(item)
 		if err != nil {
@@ -134,160 +136,155 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 		}
 	}
 
-	key := concatKey(pg.pagKeyFormat, pagKeyParams)
+	key := concatKey(pg.paginationRedisFormat, paginationParameters)
 
-	for _, sortOpt := range pg.sorting {
-		totalItem := pg.redisClient.ZCard(
-			context.TODO(),
-			key+sortOpt.SortedSetKeyTrailing,
-		)
-		if totalItem.Err() != nil {
-			return &types.PaginationError{
-				Err:     REDIS_FATAL_ERROR,
-				Details: totalItem.Err().Error(),
-				Message: "Failed to count total items on Redis",
-			}
+	totalItem := pg.redisClient.ZCard(
+		context.TODO(),
+		key+pg.sortedSetKeyTrailing,
+	)
+	if totalItem.Err() != nil {
+		return &types.PaginationError{
+			Err:     REDIS_FATAL_ERROR,
+			Details: totalItem.Err().Error(),
+			Message: "Failed to count total items on Redis",
 		}
-		// only add item to sorted set, if the sorted set exists
-		if totalItem.Val() > 0 {
-			var score float64
-			addToSortedSet := false
-			// sort createdAt ascending
-			if sortOpt.Attribute == "createdat" && sortOpt.Direction == ascending {
-				cardinalityFromRedis := pg.redisClient.Get(context.TODO(), key+sortOpt.CardinalityKeyTrailing)
-				if cardinalityFromRedis.Err() != nil {
-					if cardinalityFromRedis.Err() == redis.Nil {
-						// TODO: reingest cardinality but if reingestion failed then return redis fatal error
-					}
-					return &types.PaginationError{
-						Err:     REDIS_FATAL_ERROR,
-						Details: cardinalityFromRedis.Err().Error(),
-						Message: "Failed to get cardinality on Redis",
-					}
-				}
-
-				cardinality, errorParseInt := strconv.ParseInt(cardinalityFromRedis.Val(), 10, 64)
-				if errorParseInt != nil {
+	}
+	// only add item to sorted set, if the sorted set exists
+	if totalItem.Val() > 0 {
+		var score float64
+		addToSortedSet := false
+		// sort createdAt ascending
+		if pg.attribute == "createdat" && pg.direction == ascending {
+			cardinalityFromRedis := pg.redisClient.Get(context.TODO(), key+pg.cardinalityKeyTrailing)
+			if cardinalityFromRedis.Err() != nil {
+				if cardinalityFromRedis.Err() == redis.Nil {
 					// TODO: reingest cardinality but if reingestion failed then return redis fatal error
-					return &types.PaginationError{
-						Err:     REDIS_FATAL_ERROR,
-						Details: cardinalityFromRedis.Err().Error(),
-						Message: "Failed to parse cardinality on Redis",
-					}
 				}
-
-				if totalItem.Val() == cardinality {
-					addToSortedSet = true
-					score = float64(item.GetCreatedAt().UnixMilli())
-				} else {
-					deleteSettledKey := pg.redisClient.Del(context.TODO(), key+sortOpt.SettledKeyTrailing)
-					if deleteSettledKey.Err() != nil {
-						// TODO: remove sorted set
-						return &types.PaginationError{
-							Err:     REDIS_FATAL_ERROR,
-							Details: deleteSettledKey.Err().Error(),
-							Message: "Failed to delete settled key on Redis",
-						}
-					}
+				return &types.PaginationError{
+					Err:     REDIS_FATAL_ERROR,
+					Details: cardinalityFromRedis.Err().Error(),
+					Message: "Failed to get cardinality on Redis",
 				}
-				// sort custom attribute
-			} else if sortOpt.Attribute != "createdat" {
-				value := reflect.ValueOf(&item).Elem().Field(sortOpt.Index).Interface()
-				if value != nil {
-					switch v := value.(type) {
-					case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32:
-						score = float64(v.(int64))
-					case float64:
-						score = v
-					default:
-						return &types.PaginationError{
-							Err:     MUST_BE_NUMERICAL_DATATYPE,
-							Message: "Cannot use assigned attribute value for sorting due to its invalid datatype.",
-						}
-					}
-				} else {
-					return &types.PaginationError{
-						Err: FOUND_SORTING_BUT_NO_VALUE,
-					}
+			}
+
+			cardinality, errorParseInt := strconv.ParseInt(cardinalityFromRedis.Val(), 10, 64)
+			if errorParseInt != nil {
+				// TODO: reingest cardinality but if reingestion failed then return redis fatal error
+				return &types.PaginationError{
+					Err:     REDIS_FATAL_ERROR,
+					Details: cardinalityFromRedis.Err().Error(),
+					Message: "Failed to parse cardinality on Redis",
 				}
+			}
 
-				//var highestScore float64
-				//var lowestScore float64
-				var thresholdScore float64
-				var scoreKey string
-				var errorMessage string
-
-				if sortOpt.Direction == ascending {
-					scoreKey = key + sortOpt.HighestScoreKeyTrailing
-					errorMessage = "Failed to get highest score of custom attribute sorted set"
-				} else if sortOpt.Direction == descending {
-					scoreKey = key + sortOpt.LowestScoreKeyTrailing
-					errorMessage = "Failed to get lowest score of custom attribute sorted set"
-				}
-
-				errorGetThreshold := pg.redisClient.Get(context.TODO(), scoreKey)
-				if errorGetThreshold.Err() != nil {
-					if errorGetThreshold.Err() == redis.Nil {
-						// TODO remove sorted set
-					}
-					return &types.PaginationError{
-						Err:     REDIS_FATAL_ERROR,
-						Details: errorGetThreshold.Err().Error(),
-						Message: errorMessage,
-					}
-				}
-
-				thresholdScore, errorParseFloat := strconv.ParseFloat(errorGetThreshold.Val(), 64)
-				if errorParseFloat != nil {
+			if totalItem.Val() == cardinality {
+				addToSortedSet = true
+				score = float64(item.GetCreatedAt().UnixMilli())
+			} else {
+				deleteSettledKey := pg.redisClient.Del(context.TODO(), key+pg.settledKeyTrailing)
+				if deleteSettledKey.Err() != nil {
 					// TODO: remove sorted set
 					return &types.PaginationError{
 						Err:     REDIS_FATAL_ERROR,
-						Details: errorParseFloat.Error(),
-						Message: "Failed to parse threshold score on Redis",
+						Details: deleteSettledKey.Err().Error(),
+						Message: "Failed to delete settled key on Redis",
 					}
 				}
-
-				if sortOpt.Direction == ascending && score <= thresholdScore {
-					addToSortedSet = true
-				} else if sortOpt.Direction == descending && score >= thresholdScore {
-					addToSortedSet = true
+			}
+			// sort custom attribute
+		} else if pg.attribute != "createdat" {
+			value := reflect.ValueOf(&item).Elem().Field(pg.index).Interface()
+			if value != nil {
+				switch v := value.(type) {
+				case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32:
+					score = float64(v.(int64))
+				case float64:
+					score = v
+				default:
+					score = float64(0)
 				}
-
 			} else {
-				// createdat & descending
-				addToSortedSet = true
-				score = float64(item.GetCreatedAt().UnixMilli())
+				return &types.PaginationError{
+					Err: FOUND_SORTING_BUT_NO_VALUE,
+				}
 			}
 
-			if addToSortedSet {
-				sortedSetMember := redis.Z{
-					Score:  score,
-					Member: item.GetRandId(),
-				}
-				setSortedSet := pg.redisClient.ZAdd(
-					context.TODO(),
-					key+sortOpt.SortedSetKeyTrailing,
-					sortedSetMember,
-				)
-				if setSortedSet.Err() != nil {
-					return &types.PaginationError{
-						Err:     REDIS_FATAL_ERROR,
-						Details: setSortedSet.Err().Error(),
-						Message: "Failed to add item to pagination set on Redis",
-					}
-				}
+			//var highestScore float64
+			//var lowestScore float64
+			var thresholdScore float64
+			var scoreKey string
+			var errorMessage string
 
-				setExpire := pg.redisClient.Expire(
-					context.TODO(),
-					key+sortOpt.SortedSetKeyTrailing,
-					SORTED_SET_TTL,
-				)
-				if setExpire.Err() != nil {
-					return &types.PaginationError{
-						Err:     REDIS_FATAL_ERROR,
-						Details: setExpire.Err().Error(),
-						Message: "Failed to extend pagination set expiration on Redis",
-					}
+			if pg.direction == ascending {
+				scoreKey = key + pg.highestScoreKeyTrailing
+				errorMessage = "Failed to get highest score of custom attribute sorted set"
+			} else if pg.direction == descending {
+				scoreKey = key + pg.lowestScoreKeyTrailing
+				errorMessage = "Failed to get lowest score of custom attribute sorted set"
+			}
+
+			errorGetThreshold := pg.redisClient.Get(context.TODO(), scoreKey)
+			if errorGetThreshold.Err() != nil {
+				if errorGetThreshold.Err() == redis.Nil {
+					// TODO remove sorted set
+				}
+				return &types.PaginationError{
+					Err:     REDIS_FATAL_ERROR,
+					Details: errorGetThreshold.Err().Error(),
+					Message: errorMessage,
+				}
+			}
+
+			thresholdScore, errorParseFloat := strconv.ParseFloat(errorGetThreshold.Val(), 64)
+			if errorParseFloat != nil {
+				// TODO: remove sorted set
+				return &types.PaginationError{
+					Err:     REDIS_FATAL_ERROR,
+					Details: errorParseFloat.Error(),
+					Message: "Failed to parse threshold score on Redis",
+				}
+			}
+
+			if pg.direction == ascending && score <= thresholdScore {
+				addToSortedSet = true
+			} else if pg.direction == descending && score >= thresholdScore {
+				addToSortedSet = true
+			}
+
+		} else {
+			// createdat & descending
+			addToSortedSet = true
+			score = float64(item.GetCreatedAt().UnixMilli())
+		}
+
+		if addToSortedSet {
+			sortedSetMember := redis.Z{
+				Score:  score,
+				Member: item.GetRandId(),
+			}
+			setSortedSet := pg.redisClient.ZAdd(
+				context.TODO(),
+				key+pg.sortedSetKeyTrailing,
+				sortedSetMember,
+			)
+			if setSortedSet.Err() != nil {
+				return &types.PaginationError{
+					Err:     REDIS_FATAL_ERROR,
+					Details: setSortedSet.Err().Error(),
+					Message: "Failed to add item to pagination set on Redis",
+				}
+			}
+
+			setExpire := pg.redisClient.Expire(
+				context.TODO(),
+				key+pg.sortedSetKeyTrailing,
+				SORTED_SET_TTL,
+			)
+			if setExpire.Err() != nil {
+				return &types.PaginationError{
+					Err:     REDIS_FATAL_ERROR,
+					Details: setExpire.Err().Error(),
+					Message: "Failed to extend pagination set expiration on Redis",
 				}
 			}
 		}
@@ -296,7 +293,6 @@ func (pg *PaginationType[T]) AddItem(pagKeyParams []string, item T) *types.Pagin
 	return nil
 }
 
-/*
 func (pg *PaginationType[T]) UpdateItem(item T) *types.PaginationError {
 	if pg.mongo != nil {
 		err := pg.mongo.Update(item)
@@ -309,6 +305,8 @@ func (pg *PaginationType[T]) UpdateItem(item T) *types.PaginationError {
 		}
 	}
 
+	// zrank if sorted set exists...
+
 	errorSet := pg.itemCache.Set(item)
 	if errorSet != nil {
 		return errorSet
@@ -316,6 +314,8 @@ func (pg *PaginationType[T]) UpdateItem(item T) *types.PaginationError {
 
 	return nil
 }
+
+/*
 
 func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.PaginationError {
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)

@@ -34,27 +34,27 @@ type MongoItem interface {
 // Functions only ask pagination key parameters.
 type Pagination[T Item] interface {
 	WithMongo(mongo Mongo[T], paginationFilter bson.A)
-	AddItem(pagKeyParams []string, item T) *types.PaginationError
-	UpdateItem(item T) *types.PaginationError
-	RemoveItem(pagKeyParams []string, item T) *types.PaginationError
-	TotalItemOnCache(pagKeyParams []string) *types.PaginationError
+	AddItem(item T, paginationParameters ...string) *types.PaginationError
+	UpdateItem(item T, paginationParameters ...string) *types.PaginationError
+	RemoveItem(item T, paginationParameters ...string) *types.PaginationError
+	TotalItemOnCache(paginationParameters ...string) *types.PaginationError
 	FetchOne(randId string) (*T, *types.PaginationError)
 	FetchLinked(
-		pagKeyParams []string,
 		references []string,
 		itemPerPage int64,
 		processor PaginationProcessor[T],
+		paginationParameters ...string,
 	) ([]T, *types.PaginationError)
-	FetchAll(pagKeyParams []string, processor PaginationProcessor[T], sortOpt *types.SortingOption) ([]T, *types.PaginationError)
+	FetchAll(processor PaginationProcessor[T], paginationParameters ...string) ([]T, *types.PaginationError)
 	SeedOne(randId string) (*T, *types.PaginationError)
 	SeedLinked(
-		paginationKeyParameters []string,
 		lastItem T,
 		itemPerPage int64,
 		processor SeedProcessor[T],
+		paginationParameters ...string,
 	) ([]T, *types.PaginationError)
-	SeedAll(paginationKeyParameters []string, processor SeedProcessor[T]) ([]T, *types.PaginationError)
-	SeedCardinality(pagKeyParams []string) *types.PaginationError
+	SeedAll(processor SeedProcessor[T], paginationParameters ...string) ([]T, *types.PaginationError)
+	SeedCardinality(paginationParameters ...string) *types.PaginationError
 }
 
 type PaginationProcessor[T Item] func(item T, items *[]T)

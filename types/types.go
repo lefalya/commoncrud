@@ -5,14 +5,3 @@ type PaginationError struct {
 	Details string
 	Message string
 }
-
-type SortingOption struct {
-	Attribute               string
-	Direction               string
-	Index                   int
-	SettledKeyTrailing      string
-	CardinalityKeyTrailing  string
-	HighestScoreKeyTrailing string
-	LowestScoreKeyTrailing  string
-	SortedSetKeyTrailing    string
-}
