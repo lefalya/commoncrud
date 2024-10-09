@@ -412,7 +412,7 @@ func TestFindMany(t *testing.T) {
 		items, errorFindMany := mongo.FindMany(
 			filter,
 			findOptions,
-			mockPagination,
+			nil,
 			pagParams,
 			func(item *TestStructMongo) {
 				StringProcess(&item.UUID)

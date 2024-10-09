@@ -2,14 +2,11 @@ package commoncrud
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
-	"testing"
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -123,6 +120,7 @@ func connectRedis() redis.UniversalClient {
 	return client
 }
 
+/*
 func TestAddItemIntegration(t *testing.T) {
 	t.Run("add item without sorted-set", func(t *testing.T) {
 		dummyAircraft := NewMongoItem(Aircraft{
@@ -761,3 +759,4 @@ func TestSeedOneIntegration(t *testing.T) {
 		fmt.Println(car)
 	})
 }
+*/

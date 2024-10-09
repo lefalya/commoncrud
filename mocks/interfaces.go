@@ -424,47 +424,62 @@ func (m *MockPagination[T]) EXPECT() *MockPaginationMockRecorder[T] {
 }
 
 // AddItem mocks base method.
-func (m *MockPagination[T]) AddItem(pagKeyParams []string, item T) *types.PaginationError {
+func (m *MockPagination[T]) AddItem(item T, paginationParameters ...string) *types.PaginationError {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddItem", pagKeyParams, item)
+	varargs := []interface{}{item}
+	for _, a := range paginationParameters {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "AddItem", varargs...)
 	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
 // AddItem indicates an expected call of AddItem.
-func (mr *MockPaginationMockRecorder[T]) AddItem(pagKeyParams, item interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) AddItem(item interface{}, paginationParameters ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddItem", reflect.TypeOf((*MockPagination[T])(nil).AddItem), pagKeyParams, item)
+	varargs := append([]interface{}{item}, paginationParameters...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddItem", reflect.TypeOf((*MockPagination[T])(nil).AddItem), varargs...)
 }
 
 // FetchAll mocks base method.
-func (m *MockPagination[T]) FetchAll(pagKeyParams []string, processor interfaces.PaginationProcessor[T]) ([]T, *types.PaginationError) {
+func (m *MockPagination[T]) FetchAll(processor interfaces.PaginationProcessor[T], paginationParameters ...string) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FetchAll", pagKeyParams, processor)
+	varargs := []interface{}{processor}
+	for _, a := range paginationParameters {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "FetchAll", varargs...)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
 // FetchAll indicates an expected call of FetchAll.
-func (mr *MockPaginationMockRecorder[T]) FetchAll(pagKeyParams, processor interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) FetchAll(processor interface{}, paginationParameters ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchAll", reflect.TypeOf((*MockPagination[T])(nil).FetchAll), pagKeyParams, processor)
+	varargs := append([]interface{}{processor}, paginationParameters...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchAll", reflect.TypeOf((*MockPagination[T])(nil).FetchAll), varargs...)
 }
 
 // FetchLinked mocks base method.
-func (m *MockPagination[T]) FetchLinked(pagKeyParams, references []string, itemPerPage int64, processor interfaces.PaginationProcessor[T]) ([]T, *types.PaginationError) {
+func (m *MockPagination[T]) FetchLinked(references []string, itemPerPage int64, processor interfaces.PaginationProcessor[T], paginationParameters ...string) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FetchLinked", pagKeyParams, references, itemPerPage, processor)
+	varargs := []interface{}{references, itemPerPage, processor}
+	for _, a := range paginationParameters {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "FetchLinked", varargs...)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
 // FetchLinked indicates an expected call of FetchLinked.
-func (mr *MockPaginationMockRecorder[T]) FetchLinked(pagKeyParams, references, itemPerPage, processor interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) FetchLinked(references, itemPerPage, processor interface{}, paginationParameters ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchLinked", reflect.TypeOf((*MockPagination[T])(nil).FetchLinked), pagKeyParams, references, itemPerPage, processor)
+	varargs := append([]interface{}{references, itemPerPage, processor}, paginationParameters...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchLinked", reflect.TypeOf((*MockPagination[T])(nil).FetchLinked), varargs...)
 }
 
 // FetchOne mocks base method.
@@ -483,47 +498,80 @@ func (mr *MockPaginationMockRecorder[T]) FetchOne(randId interface{}) *gomock.Ca
 }
 
 // RemoveItem mocks base method.
-func (m *MockPagination[T]) RemoveItem(pagKeyParams []string, item T) *types.PaginationError {
+func (m *MockPagination[T]) RemoveItem(item T, paginationParameters ...string) *types.PaginationError {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveItem", pagKeyParams, item)
+	varargs := []interface{}{item}
+	for _, a := range paginationParameters {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "RemoveItem", varargs...)
 	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
 // RemoveItem indicates an expected call of RemoveItem.
-func (mr *MockPaginationMockRecorder[T]) RemoveItem(pagKeyParams, item interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) RemoveItem(item interface{}, paginationParameters ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveItem", reflect.TypeOf((*MockPagination[T])(nil).RemoveItem), pagKeyParams, item)
+	varargs := append([]interface{}{item}, paginationParameters...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveItem", reflect.TypeOf((*MockPagination[T])(nil).RemoveItem), varargs...)
 }
 
 // SeedAll mocks base method.
-func (m *MockPagination[T]) SeedAll(paginationKeyParameters []string, processor interfaces.SeedProcessor[T]) ([]T, *types.PaginationError) {
+func (m *MockPagination[T]) SeedAll(processor interfaces.SeedProcessor[T], paginationParameters ...string) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SeedAll", paginationKeyParameters, processor)
+	varargs := []interface{}{processor}
+	for _, a := range paginationParameters {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SeedAll", varargs...)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
 // SeedAll indicates an expected call of SeedAll.
-func (mr *MockPaginationMockRecorder[T]) SeedAll(paginationKeyParameters, processor interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) SeedAll(processor interface{}, paginationParameters ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedAll", reflect.TypeOf((*MockPagination[T])(nil).SeedAll), paginationKeyParameters, processor)
+	varargs := append([]interface{}{processor}, paginationParameters...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedAll", reflect.TypeOf((*MockPagination[T])(nil).SeedAll), varargs...)
+}
+
+// SeedCardinality mocks base method.
+func (m *MockPagination[T]) SeedCardinality(paginationParameters ...string) *types.PaginationError {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range paginationParameters {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SeedCardinality", varargs...)
+	ret0, _ := ret[0].(*types.PaginationError)
+	return ret0
+}
+
+// SeedCardinality indicates an expected call of SeedCardinality.
+func (mr *MockPaginationMockRecorder[T]) SeedCardinality(paginationParameters ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedCardinality", reflect.TypeOf((*MockPagination[T])(nil).SeedCardinality), paginationParameters...)
 }
 
 // SeedLinked mocks base method.
-func (m *MockPagination[T]) SeedLinked(paginationKeyParameters []string, lastItem T, itemPerPage int64, processor interfaces.SeedProcessor[T]) ([]T, *types.PaginationError) {
+func (m *MockPagination[T]) SeedLinked(lastItem T, itemPerPage int64, processor interfaces.SeedProcessor[T], paginationParameters ...string) ([]T, *types.PaginationError) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SeedLinked", paginationKeyParameters, lastItem, itemPerPage, processor)
+	varargs := []interface{}{lastItem, itemPerPage, processor}
+	for _, a := range paginationParameters {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SeedLinked", varargs...)
 	ret0, _ := ret[0].([]T)
 	ret1, _ := ret[1].(*types.PaginationError)
 	return ret0, ret1
 }
 
 // SeedLinked indicates an expected call of SeedLinked.
-func (mr *MockPaginationMockRecorder[T]) SeedLinked(paginationKeyParameters, lastItem, itemPerPage, processor interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) SeedLinked(lastItem, itemPerPage, processor interface{}, paginationParameters ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedLinked", reflect.TypeOf((*MockPagination[T])(nil).SeedLinked), paginationKeyParameters, lastItem, itemPerPage, processor)
+	varargs := append([]interface{}{lastItem, itemPerPage, processor}, paginationParameters...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeedLinked", reflect.TypeOf((*MockPagination[T])(nil).SeedLinked), varargs...)
 }
 
 // SeedOne mocks base method.
@@ -542,31 +590,40 @@ func (mr *MockPaginationMockRecorder[T]) SeedOne(randId interface{}) *gomock.Cal
 }
 
 // TotalItemOnCache mocks base method.
-func (m *MockPagination[T]) TotalItemOnCache(pagKeyParams []string) *types.PaginationError {
+func (m *MockPagination[T]) TotalItemOnCache(paginationParameters ...string) *types.PaginationError {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TotalItemOnCache", pagKeyParams)
+	varargs := []interface{}{}
+	for _, a := range paginationParameters {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "TotalItemOnCache", varargs...)
 	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
 // TotalItemOnCache indicates an expected call of TotalItemOnCache.
-func (mr *MockPaginationMockRecorder[T]) TotalItemOnCache(pagKeyParams interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) TotalItemOnCache(paginationParameters ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TotalItemOnCache", reflect.TypeOf((*MockPagination[T])(nil).TotalItemOnCache), pagKeyParams)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TotalItemOnCache", reflect.TypeOf((*MockPagination[T])(nil).TotalItemOnCache), paginationParameters...)
 }
 
 // UpdateItem mocks base method.
-func (m *MockPagination[T]) UpdateItem(item T) *types.PaginationError {
+func (m *MockPagination[T]) UpdateItem(item T, paginationParameters ...string) *types.PaginationError {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateItem", item)
+	varargs := []interface{}{item}
+	for _, a := range paginationParameters {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "UpdateItem", varargs...)
 	ret0, _ := ret[0].(*types.PaginationError)
 	return ret0
 }
 
 // UpdateItem indicates an expected call of UpdateItem.
-func (mr *MockPaginationMockRecorder[T]) UpdateItem(item interface{}) *gomock.Call {
+func (mr *MockPaginationMockRecorder[T]) UpdateItem(item interface{}, paginationParameters ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateItem", reflect.TypeOf((*MockPagination[T])(nil).UpdateItem), item)
+	varargs := append([]interface{}{item}, paginationParameters...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateItem", reflect.TypeOf((*MockPagination[T])(nil).UpdateItem), varargs...)
 }
 
 // WithMongo mocks base method.
@@ -668,6 +725,21 @@ func NewMockMongo[T interfaces.Item](ctrl *gomock.Controller) *MockMongo[T] {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMongo[T]) EXPECT() *MockMongoMockRecorder[T] {
 	return m.recorder
+}
+
+// Count mocks base method.
+func (m *MockMongo[T]) Count(filter bson.D, pagination interfaces.Pagination[T], paginationParameters []string) (int64, *types.PaginationError) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Count", filter, pagination, paginationParameters)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(*types.PaginationError)
+	return ret0, ret1
+}
+
+// Count indicates an expected call of Count.
+func (mr *MockMongoMockRecorder[T]) Count(filter, pagination, paginationParameters interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Count", reflect.TypeOf((*MockMongo[T])(nil).Count), filter, pagination, paginationParameters)
 }
 
 // Create mocks base method.

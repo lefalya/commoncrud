@@ -149,7 +149,7 @@ func (mo *MongoType[T]) FindMany(
 			item.SetUpdatedAt(parsedTime)
 		}
 
-		pagination.AddItem(paginationParameters, item)
+		pagination.AddItem(item, paginationParameters...)
 
 		// During the seeding process, the processor functions solely as an item modifier/processor.
 		// In contrast, during the fetching process, the processor also evaluates whether
@@ -162,6 +162,27 @@ func (mo *MongoType[T]) FindMany(
 	}
 
 	return results, nil
+}
+
+func (mo *MongoType[T]) Count(
+	filter bson.D,
+	pagination interfaces.Pagination[T],
+	paginationParameters []string,
+) (int64, *types.PaginationError) {
+
+	count, err := mo.collection.CountDocuments(
+		context.TODO(),
+		filter,
+	)
+
+	if err != nil {
+		return 0, &types.PaginationError{
+			Err:     MONGO_FATAL_ERROR,
+			Details: err.Error(),
+		}
+	}
+
+	return count, nil
 }
 
 func (mo *MongoType[T]) Update(item T) *types.PaginationError {
