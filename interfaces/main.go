@@ -41,7 +41,6 @@ type Pagination[T Item] interface {
 	FetchOne(randId string) (*T, *types.PaginationError)
 	FetchLinked(
 		references []string,
-		itemPerPage int64,
 		processor PaginationProcessor[T],
 		paginationParameters ...string,
 	) ([]T, *types.PaginationError)
@@ -49,7 +48,6 @@ type Pagination[T Item] interface {
 	SeedOne(randId string) (*T, *types.PaginationError)
 	SeedLinked(
 		lastItem T,
-		itemPerPage int64,
 		processor SeedProcessor[T],
 		paginationParameters ...string,
 	) ([]T, *types.PaginationError)

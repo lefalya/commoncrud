@@ -53,6 +53,7 @@ var (
 )
 
 func concatKey(keyFormat string, parameters []string) string {
+	// need to check if parameters is higher than string slots
 	args := make([]interface{}, len(parameters))
 	for i, v := range parameters {
 		lowercase := strings.ToLower(v)

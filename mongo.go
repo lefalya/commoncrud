@@ -114,6 +114,9 @@ func (mo *MongoType[T]) FindMany(
 	paginationParameters []string,
 	processor interfaces.SeedProcessor[T],
 ) ([]T, *types.PaginationError) {
+
+	// pembuatan bson filter harusnya ada disini
+
 	var results []T
 
 	cursor, errorFindItems := mo.collection.Find(
@@ -169,6 +172,8 @@ func (mo *MongoType[T]) Count(
 	pagination interfaces.Pagination[T],
 	paginationParameters []string,
 ) (int64, *types.PaginationError) {
+
+	// pembuatan bson filter harusnya ada disini
 
 	count, err := mo.collection.CountDocuments(
 		context.TODO(),

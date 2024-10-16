@@ -27,6 +27,7 @@ type PaginationType[T interfaces.Item] struct {
 	mongo                   interfaces.Mongo[T]
 	itemCache               interfaces.ItemCache[T]
 	itemKeyFormat           string
+	itemPerPage             int64
 	attribute               string
 	direction               string
 	paginationRedisFormat   string
@@ -44,6 +45,7 @@ func Pagination[T interfaces.Item](
 	attribute string,
 	order string,
 	filterBy []string,
+	itemPerPage int64,
 	suffix string,
 	logger *slog.Logger,
 	redisClient redis.UniversalClient,
@@ -65,7 +67,7 @@ func Pagination[T interfaces.Item](
 		formattedSuffix = ":" + suffix
 	}
 
-	keyFormat = entityName + middleKey + formattedSuffix
+	keyFormat = entityName + middleKey
 
 	pagination := &PaginationType[T]{
 		attribute:             attribute,
@@ -83,10 +85,10 @@ func Pagination[T interfaces.Item](
 		pagination.index = 0
 		if pagination.direction == ascending {
 			pagination.sortedSetKeyTrailing = ascendingTrailing + "createdat" + formattedSuffix
-			pagination.settledKeyTrailing = pagination.sortedSetKeyTrailing + ":settled"
 			pagination.cardinalityKeyTrailing = pagination.sortedSetKeyTrailing + ":cardinality"
 		} else {
 			pagination.sortedSetKeyTrailing = descendingTrailing + "createdat" + formattedSuffix
+			pagination.settledKeyTrailing = pagination.sortedSetKeyTrailing + ":settled"
 		}
 
 	} else {
@@ -180,7 +182,14 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 			if totalItem.Val() == cardinality {
 				addToSortedSet = true
 				score = float64(item.GetCreatedAt().UnixMilli())
-			} else {
+			}
+		} else if pg.attribute == "createdat" && pg.direction == descending {
+			// createdat & descending
+			addToSortedSet = true
+
+			// if zcard >= itemPerPage && zcard mod itemPerPage != 0 then :
+
+			if totalItem.Val() >= pg.itemPerPage && totalItem.Val()%pg.itemPerPage != 0 {
 				deleteSettledKey := pg.redisClient.Del(context.TODO(), key+pg.settledKeyTrailing)
 				if deleteSettledKey.Err() != nil {
 					// TODO: remove sorted set
@@ -191,8 +200,11 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 					}
 				}
 			}
-			// sort custom attribute
-		} else if pg.attribute != "createdat" {
+
+			// end if
+
+			score = float64(item.GetCreatedAt().UnixMilli())
+		} else {
 			value := reflect.ValueOf(&item).Elem().Field(pg.index).Interface()
 			if value != nil {
 				switch v := value.(type) {
@@ -250,11 +262,6 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 			} else if pg.direction == descending && score >= thresholdScore {
 				addToSortedSet = true
 			}
-
-		} else {
-			// createdat & descending
-			addToSortedSet = true
-			score = float64(item.GetCreatedAt().UnixMilli())
 		}
 
 		if addToSortedSet {
@@ -293,7 +300,7 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 	return nil
 }
 
-func (pg *PaginationType[T]) UpdateItem(item T) *types.PaginationError {
+func (pg *PaginationType[T]) UpdateItem(item T, paginationParameters ...string) *types.PaginationError {
 	if pg.mongo != nil {
 		err := pg.mongo.Update(item)
 		if err != nil {
@@ -305,20 +312,76 @@ func (pg *PaginationType[T]) UpdateItem(item T) *types.PaginationError {
 		}
 	}
 
-	// zrank if sorted set exists...
+	key := concatKey(pg.paginationRedisFormat, paginationParameters)
 
 	errorSet := pg.itemCache.Set(item)
 	if errorSet != nil {
 		return errorSet
 	}
 
+	if pg.attribute != "createdat" {
+		var score float64
+		// zrank if sorted set exists...
+		rank := pg.redisClient.ZRank(context.TODO(), key+pg.sortedSetKeyTrailing, item.GetRandId())
+		if rank.Err() != nil {
+			if rank.Err() == redis.Nil {
+				return nil
+			}
+			return &types.PaginationError{
+				Err:     REDIS_FATAL_ERROR,
+				Details: rank.Err().Error(),
+				Message: "Fatal error while getting member's rank from sorted set",
+			}
+		}
+
+		value := reflect.ValueOf(&item).Elem().Field(pg.index).Interface()
+		if value != nil {
+			switch v := value.(type) {
+			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32:
+				score = float64(v.(int64))
+			case float64:
+				score = v
+			default:
+				score = float64(0)
+			}
+		} else {
+			return &types.PaginationError{
+				Err: FOUND_SORTING_BUT_NO_VALUE,
+			}
+		}
+
+		member := redis.Z{
+			Score:  score,
+			Member: item.GetRandId(),
+		}
+		updateSortedSet := pg.redisClient.ZAdd(context.TODO(), key+pg.sortedSetKeyTrailing, member)
+		if updateSortedSet.Err() != nil {
+			return &types.PaginationError{
+				Err:     REDIS_FATAL_ERROR,
+				Details: updateSortedSet.Err().Error(),
+				Message: "Failed to update score on sorted set!",
+			}
+		}
+
+		updateSortedSetExpiration := pg.redisClient.Expire(
+			context.TODO(),
+			key+pg.sortedSetKeyTrailing,
+			SORTED_SET_TTL,
+		)
+		if updateSortedSetExpiration.Err() != nil {
+			return &types.PaginationError{
+				Err:     REDIS_FATAL_ERROR,
+				Details: updateSortedSetExpiration.Err().Error(),
+				Message: "Failed to extend sorted set expiration!",
+			}
+		}
+	}
+
 	return nil
 }
 
-/*
-
 func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.PaginationError {
-	key := concatKey(pg.pagKeyFormat, pagKeyParams)
+	key := concatKey(pg.paginationRedisFormat, pagKeyParams)
 
 	if pg.mongo != nil {
 		err := pg.mongo.Delete(item)
@@ -336,44 +399,80 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.Pa
 		return errorDelete
 	}
 
-	var sortedSetKey string
-	if pg.sorting != nil && pg.sorting.direction == ascending {
-		sortedSetKey = key + ascendingTrailing + pg.sorting.attribute
-	} else if pg.sorting != nil && pg.sorting.direction == descending {
-		sortedSetKey = key + descendingTrailing + pg.sorting.attribute
-	} else {
-		sortedSetKey = key + descendingTrailing + "createdat"
-	}
-
-	totalItem := pg.redisClient.ZCard(
+	itemRank := pg.redisClient.ZRank(
 		context.TODO(),
-		sortedSetKey,
+		key,
+		item.GetRandId(),
 	)
-	if totalItem.Err() != nil {
+	if itemRank.Err() != nil {
+		if itemRank.Err() == redis.Nil {
+			// will skip member removal from sorted set
+			return nil
+		}
 		return &types.PaginationError{
 			Err:     REDIS_FATAL_ERROR,
-			Details: totalItem.Err().Error(),
+			Details: itemRank.Err().Error(),
 			Message: "Failed to count total items on Redis",
 		}
 	}
 
 	// only remove item from sorted set, if the sorted set exists
-	if totalItem.Val() > 0 {
-		removeItemSortedSet := pg.redisClient.ZRem(context.TODO(), sortedSetKey, item.GetRandId())
-
-		if removeItemSortedSet.Err() != nil {
-			return &types.PaginationError{
-				Err:     REDIS_FATAL_ERROR,
-				Details: removeItemSortedSet.Err().Error(),
-				Message: "Failed to remove item from pagination set on Redis",
-			}
+	removeItemFromSortedSet := pg.redisClient.ZRem(context.TODO(), key+pg.sortedSetKeyTrailing, item.GetRandId())
+	if removeItemFromSortedSet.Err() != nil {
+		return &types.PaginationError{
+			Err:     REDIS_FATAL_ERROR,
+			Details: removeItemFromSortedSet.Err().Error(),
+			Message: "Failed to remove item from pagination set on Redis",
 		}
 	}
 
-	// will not return an error if the ZRem, Del, or Delete command results in zero deletions.
+	// if attribute is not createdat then re-set the highest & lowest key
+	if pg.attribute == "createdat" {
+
+	} else {
+		var score float64
+		value := reflect.ValueOf(&item).Elem().Field(pg.index).Interface()
+		if value != nil {
+			switch v := value.(type) {
+			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32:
+				score = float64(v.(int64))
+			case float64:
+				score = v
+			default:
+				score = float64(0)
+			}
+		} else {
+			return &types.PaginationError{
+				Err: FOUND_SORTING_BUT_NO_VALUE,
+			}
+		}
+
+		var thersholdKey string
+		if pg.direction == ascending {
+			thersholdKey = key + pg.highestScoreKeyTrailing
+		} else if pg.direction == descending {
+			thersholdKey = key + pg.lowestScoreKeyTrailing
+		}
+
+		thresholdFromCache := pg.redisClient.Get(context.TODO(), thersholdKey)
+		if thresholdFromCache.Err() != nil {
+			// TODO redis error, will decide what to do in future
+		}
+
+		threshold, errorParseFloat := strconv.ParseFloat(thresholdFromCache.Val(), 64)
+		if errorParseFloat != nil {
+			// TODO will decide what to do in future
+		}
+
+		if threshold == score {
+			// TODO ambil item te
+		}
+	}
+
 	return nil
 }
 
+/*
 func (pg *PaginationType[T]) TotalItemOnCache(pagKeyParams []string) *types.PaginationError {
 	key := concatKey(pg.pagKeyFormat, pagKeyParams)
 
