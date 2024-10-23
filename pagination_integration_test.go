@@ -2,22 +2,16 @@ package commoncrud
 
 import (
 	"context"
+	"github.com/redis/go-redis/v9"
 	"log"
 	"os"
-	"time"
-
-	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 // using aircraft
 var (
 	brandAircraft    = "Boeing"
 	categoryAircraft = "Narrow Body"
-	aircraft         = NewMongoItem(Aircraft{
+	aircraft         = NewItem(Aircraft{
 		Brand:    brandAircraft,
 		Category: categoryAircraft,
 		Engine: []Engine{
@@ -35,11 +29,7 @@ var (
 	itemKeyFormatAircraft        = "aircraft:%s"
 	paginationKeyFormatAircraft  = "aircraft:brands:%s:type:%s"
 	paginationParametersAircraft = []string{"Boeing", "Narrow Body"}
-	paginationFilterAircraft     = bson.A{
-		bson.D{{"aircraft", brandAircraft}},
-		bson.D{{"categoryAircraft", categoryAircraft}},
-	}
-	keyAircraft = concatKey(paginationKeyFormatAircraft, paginationParametersAircraft)
+	keyAircraft                  = concatKey(paginationKeyFormatAircraft, paginationParametersAircraft)
 )
 
 type Engine struct {
@@ -49,7 +39,6 @@ type Engine struct {
 
 type Aircraft struct {
 	*Item
-	*MongoItem
 	Ranking  int64    `bson:"ranking"`
 	Brand    string   `bson:"brandAircraft"`
 	Category string   `bson:"categoryAircraft"`
@@ -58,7 +47,6 @@ type Aircraft struct {
 
 type AircraftCustomDescend struct {
 	*Item
-	*MongoItem
 	Ranking  int64    `bson:"ranking" sorting:"descending"`
 	Brand    string   `bson:"brandAircraft"`
 	Category string   `bson:"categoryAircraft"`
@@ -66,8 +54,7 @@ type AircraftCustomDescend struct {
 }
 
 type AircraftDefaultAscend struct {
-	*Item `sorting:"ascending"`
-	*MongoItem
+	*Item    `sorting:"ascending"`
 	Ranking  int64    `bson:"ranking"`
 	Brand    string   `bson:"brandAircraft"`
 	Category string   `bson:"categoryAircraft"`
@@ -76,29 +63,10 @@ type AircraftDefaultAscend struct {
 
 type AircraftCustomAscend struct {
 	*Item
-	*MongoItem
 	Ranking  int64    `bson:"ranking" sorting:"ascending"`
 	Brand    string   `bson:"brandAircraft"`
 	Category string   `bson:"categoryAircraft"`
 	Engine   []Engine `bson:"engine"`
-}
-
-func connectMongo() *mongo.Collection {
-	URI := os.Getenv("MONGO_HOST")
-	database := os.Getenv("MONGO_DATABASE")
-	collection := os.Getenv("MONGO_COLLECTION")
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-	client, errConnect := mongo.Connect(ctx, options.Client().ApplyURI(URI))
-
-	if errConnect != nil {
-		panic(errConnect)
-	}
-
-	if errPing := client.Ping(ctx, readpref.Primary()); errPing != nil {
-		panic(errPing)
-	}
-
-	return client.Database(database).Collection(collection)
 }
 
 func connectRedis() redis.UniversalClient {

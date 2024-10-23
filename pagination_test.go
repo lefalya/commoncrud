@@ -6,7 +6,6 @@ import (
 	mock_interfaces "github.com/lefalya/commoncrud/mocks"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/bson"
 	"testing"
 )
 
@@ -14,7 +13,7 @@ var (
 	brand       = "Volkswagen"
 	category    = "SUV"
 	itemPerPage = int64(30)
-	car         = NewMongoItem(Car{
+	car         = NewItem(Car{
 		Brand:    brand,
 		Category: category,
 		Seating: []Seater{
@@ -36,10 +35,7 @@ var (
 	itemKeyFormat        = "car:%s"
 	paginationKeyFormat  = "car:brands:%s:category:%s"
 	paginationParameters = []string{"Volkswagen", "SUV"}
-	paginationFilter     = bson.A{
-		bson.D{{"brand", brand}},
-		bson.D{{"category", category}},
-	}
+
 	key = concatKey(paginationKeyFormat, paginationParameters)
 )
 
@@ -50,7 +46,6 @@ type Seater struct {
 
 type Car struct {
 	*Item
-	*MongoItem
 	Ranking  int64    `bson:"ranking"`
 	Brand    string   `bson:"brand"`
 	Category string   `bson:"category"`
@@ -177,10 +172,6 @@ func TestAddItem(t *testing.T) {
 		carImpl := car
 		carImpl.Ranking = 4
 
-		// mongo expectations
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Create(carImpl).Return(nil)
-
 		// itemcache expectations
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
 		itemCache.EXPECT().Set(carImpl).Return(nil)
@@ -206,7 +197,6 @@ func TestAddItem(t *testing.T) {
 			redisDB,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 		errorAddItem := pagination.AddItem(carImpl, brand, category)
 		assert.Nil(t, errorAddItem)
 	})
@@ -216,10 +206,6 @@ func TestAddItem(t *testing.T) {
 
 		carImpl := car
 		carImpl.Ranking = 4
-
-		// mongo expectations
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Create(carImpl).Return(nil)
 
 		// itemcache expectations
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
@@ -246,7 +232,6 @@ func TestAddItem(t *testing.T) {
 			redisDB,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 		errorAddItem := pagination.AddItem(carImpl, brand, category)
 		assert.Nil(t, errorAddItem)
 	})
@@ -256,11 +241,6 @@ func TestAddItem(t *testing.T) {
 
 		carImpl := car
 		carImpl.Ranking = 4
-
-		// mongo expectations
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().SetPaginationFilter(nil)
-		mongoMock.EXPECT().Create(carImpl).Return(nil)
 
 		// itemcache expectations
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
@@ -294,10 +274,6 @@ func TestAddItem(t *testing.T) {
 		carImpl := car
 		carImpl.Ranking = 4
 
-		// mongo expectations
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Create(carImpl).Return(nil)
-
 		// itemcache expectations
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
 		itemCache.EXPECT().Set(carImpl).Return(nil)
@@ -323,7 +299,6 @@ func TestAddItem(t *testing.T) {
 			redisDB,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 
 		errorAddItem := pagination.AddItem(carImpl, brand, category)
 		assert.Nil(t, errorAddItem)
@@ -334,10 +309,6 @@ func TestAddItem(t *testing.T) {
 
 		carImpl := car
 		carImpl.Ranking = 89
-
-		// mongo expectations
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Create(carImpl).Return(nil)
 
 		// itemcache expectations
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
@@ -364,17 +335,12 @@ func TestAddItem(t *testing.T) {
 			redisDB,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 		errorAddItem := pagination.AddItem(carImpl, brand, category)
 		assert.Nil(t, errorAddItem)
 	})
 	t.Run("(custom descending) nil attribute value", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		// mongo expectations
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Create(car).Return(nil)
 
 		// itemcache expectations
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
@@ -395,7 +361,6 @@ func TestAddItem(t *testing.T) {
 			redisDB,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 		errorAddItem := pagination.AddItem(car, brand, category)
 		assert.Nil(t, errorAddItem)
 	})
@@ -403,10 +368,6 @@ func TestAddItem(t *testing.T) {
 	t.Run("(custom ascending) nil attribute value", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		// mongo expectations
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Create(car).Return(nil)
 
 		// itemcache expectations
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
@@ -433,7 +394,6 @@ func TestAddItem(t *testing.T) {
 			redisDB,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 		errorAddItem := pagination.AddItem(car, brand, category)
 		assert.Nil(t, errorAddItem)
 	})
@@ -443,9 +403,6 @@ func TestUpdateItem(t *testing.T) {
 	t.Run("(createdat descending) successfully update item", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Update(car).Return(nil)
 
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
 		itemCache.EXPECT().Set(car).Return(nil)
@@ -461,7 +418,6 @@ func TestUpdateItem(t *testing.T) {
 			nil,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 
 		errorUpdateItem := pagination.UpdateItem(car, brand, category)
 		assert.Nil(t, errorUpdateItem)
@@ -469,9 +425,6 @@ func TestUpdateItem(t *testing.T) {
 	t.Run("(createdat ascending) successfully update item", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Update(car).Return(nil)
 
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
 		itemCache.EXPECT().Set(car).Return(nil)
@@ -487,7 +440,6 @@ func TestUpdateItem(t *testing.T) {
 			nil,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 
 		errorUpdateItem := pagination.UpdateItem(car, brand, category)
 		assert.Nil(t, errorUpdateItem)
@@ -498,9 +450,6 @@ func TestUpdateItem(t *testing.T) {
 
 		carImpl := car
 		carImpl.Ranking = 4
-
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Update(carImpl).Return(nil)
 
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
 		itemCache.EXPECT().Set(carImpl).Return(nil)
@@ -525,7 +474,6 @@ func TestUpdateItem(t *testing.T) {
 			redisDB,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 
 		errorUpdateItem := pagination.UpdateItem(carImpl, brand, category)
 		assert.Nil(t, errorUpdateItem)
@@ -536,9 +484,6 @@ func TestUpdateItem(t *testing.T) {
 
 		carImpl := car
 		carImpl.Ranking = 4
-
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Update(carImpl).Return(nil)
 
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
 		itemCache.EXPECT().Set(carImpl).Return(nil)
@@ -563,7 +508,6 @@ func TestUpdateItem(t *testing.T) {
 			redisDB,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 
 		errorUpdateItem := pagination.UpdateItem(carImpl, brand, category)
 		assert.Nil(t, errorUpdateItem)
@@ -574,10 +518,6 @@ func TestUpdateItem(t *testing.T) {
 
 		carImpl := car
 		carImpl.Ranking = 4
-
-		mongoMock := mock_interfaces.NewMockMongo[Car](ctrl)
-		mongoMock.EXPECT().Update(carImpl).Return(nil)
-
 		itemCache := mock_interfaces.NewMockItemCache[Car](ctrl)
 		itemCache.EXPECT().Set(carImpl).Return(nil)
 
@@ -595,7 +535,6 @@ func TestUpdateItem(t *testing.T) {
 			redisDB,
 		)
 		pagination.itemCache = itemCache
-		pagination.WithMongo(mongoMock)
 
 		errorUpdateItem := pagination.UpdateItem(carImpl, brand, category)
 		assert.Nil(t, errorUpdateItem)

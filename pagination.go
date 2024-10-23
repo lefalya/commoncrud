@@ -24,7 +24,6 @@ type PaginationType[T interfaces.Item] struct {
 	logger                  *slog.Logger
 	redisClient             redis.UniversalClient
 	filter                  []string
-	mongo                   interfaces.Mongo[T]
 	itemCache               interfaces.ItemCache[T]
 	itemKeyFormat           string
 	itemPerPage             int64
@@ -113,22 +112,7 @@ func Pagination[T interfaces.Item](
 	return pagination
 }
 
-func (pg *PaginationType[T]) WithMongo(mongo interfaces.Mongo[T]) {
-	pg.mongo = mongo
-}
-
 func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *types.PaginationError {
-	if pg.mongo != nil {
-		err := pg.mongo.Create(item)
-		if err != nil {
-			return &types.PaginationError{
-				Err:     err.Err,
-				Details: err.Details,
-				Message: "Failed to create item to MongoDB",
-			}
-		}
-	}
-
 	errorSet := pg.itemCache.Set(item)
 	if errorSet != nil {
 		return &types.PaginationError{
@@ -301,17 +285,6 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 }
 
 func (pg *PaginationType[T]) UpdateItem(item T, paginationParameters ...string) *types.PaginationError {
-	if pg.mongo != nil {
-		err := pg.mongo.Update(item)
-		if err != nil {
-			return &types.PaginationError{
-				Err:     err.Err,
-				Details: err.Details,
-				Message: "Failed to update item on MongoDB",
-			}
-		}
-	}
-
 	key := concatKey(pg.paginationRedisFormat, paginationParameters)
 
 	errorSet := pg.itemCache.Set(item)
@@ -382,17 +355,6 @@ func (pg *PaginationType[T]) UpdateItem(item T, paginationParameters ...string) 
 
 func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.PaginationError {
 	key := concatKey(pg.paginationRedisFormat, pagKeyParams)
-
-	if pg.mongo != nil {
-		err := pg.mongo.Delete(item)
-		if err != nil {
-			return &types.PaginationError{
-				Err:     err.Err,
-				Details: err.Details,
-				Message: "Failed to delete item from MongoDB",
-			}
-		}
-	}
 
 	errorDelete := pg.itemCache.Del(item)
 	if errorDelete != nil {

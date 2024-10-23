@@ -13,10 +13,9 @@ import (
 )
 
 type TestStructItemCache struct {
-	*Item      `bson:",inline"`
-	*MongoItem `bson:",inline"`
-	FirstName  string `bson:"firstname"`
-	LastName   string `bson:"lastname"`
+	*Item     `bson:",inline"`
+	FirstName string `bson:"firstname"`
+	LastName  string `bson:"lastname"`
 }
 
 func TestInjectItemCache(t *testing.T) {
@@ -43,7 +42,6 @@ func TestGet(t *testing.T) {
 			CreatedAtString: currentTime.Format(FORMATTED_TIME),
 			UpdatedAtString: currentTime.Format(FORMATTED_TIME),
 		},
-		MongoItem: &MongoItem{},
 		FirstName: "test",
 		LastName:  "test again",
 	}

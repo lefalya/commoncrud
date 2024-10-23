@@ -12,16 +12,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lefalya/commoncrud/interfaces"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const (
-	DAY                        = 24 * time.Hour
-	INDIVIDUAL_KEY_TTL         = DAY * 7
-	SORTED_SET_TTL             = DAY * 2
-	MAXIMUM_AMOUNT_REFERENCES  = 5
-	RANDID_LENGTH              = 16
-	MONGO_DUPLICATE_ERROR_CODE = 11000
+	DAY                       = 24 * time.Hour
+	INDIVIDUAL_KEY_TTL        = DAY * 7
+	SORTED_SET_TTL            = DAY * 2
+	MAXIMUM_AMOUNT_REFERENCES = 5
+	RANDID_LENGTH             = 16
 	// Go's reference time, which is Mon Jan 2 15:04:05 MST 2006
 	FORMATTED_TIME = "2006-01-02T15:04:05.000000000Z"
 )
@@ -36,20 +34,9 @@ var (
 	// Pagination errors
 	TOO_MUCH_REFERENCES        = errors.New("(commoncrud) Too much references")
 	NO_VALID_REFERENCES        = errors.New("(commoncrud) No valid references")
-	NO_DATABASE_CONFIGURED     = errors.New("(commoncrud) No database configured!")
-	ONE_DATABASE_ONLY          = errors.New("(commoncrud) Please connect to only one database type. Multiple database connections are not supported.")
-	LASTITEM_MUST_MONGOITEM    = errors.New("(commoncrud) Last item must be in interfaces.MongoItem")
 	INVALID_SORTING_ORDER      = errors.New("(commoncrud) Invalid sorting order")
 	MUST_BE_NUMERICAL_DATATYPE = errors.New("(commoncrud) sorting attribute must be in numerical datatype")
 	FOUND_SORTING_BUT_NO_VALUE = errors.New("(commoncrud) Nil value on sorted attribute")
-	// MongoDB errors
-	REFERENCE_NOT_FOUND = errors.New("(commoncrud) Reference not found")
-	DOCUMENT_NOT_FOUND  = errors.New("(commoncrud) Document not found")
-	MONGO_FATAL_ERROR   = errors.New("(commoncrud) MongoDB fatal error")
-	DUPLICATE_RANDID    = errors.New("(commoncrud) Duplicate RandID")
-	NO_OBJECTID_PRESENT = errors.New("(commoncrud) No objectId presents")
-	FAILED_DECODE       = errors.New("(commoncrud) failed decode")
-	INVALID_HEX         = errors.New("(commoncrud) Invalid hex: fail to convert hex to ObjectId")
 )
 
 func concatKey(keyFormat string, parameters []string) string {
@@ -151,19 +138,7 @@ func (i *Item) GetUpdatedAtString() string {
 	return i.UpdatedAtString
 }
 
-type MongoItem struct {
-	ObjectId primitive.ObjectID `bson:"_id"`
-}
-
-func (m *MongoItem) SetObjectId() {
-	m.ObjectId = primitive.NewObjectID()
-}
-
-func (m *MongoItem) GetObjectId() primitive.ObjectID {
-	return m.ObjectId
-}
-
-func NewMongoItem[T interfaces.MongoItem](item T) T {
+func NewItem[T interfaces.Item](item T) T {
 	currentTime := time.Now().In(time.UTC)
 
 	initializePointers(&item)
@@ -172,7 +147,6 @@ func NewMongoItem[T interfaces.MongoItem](item T) T {
 	item.SetRandId()
 	item.SetCreatedAt(currentTime)
 	item.SetUpdatedAt(currentTime)
-	item.SetObjectId()
 
 	return item
 }
