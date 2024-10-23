@@ -184,11 +184,6 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 				score = float64(item.GetCreatedAt().UnixMilli())
 			}
 		} else if pg.attribute == "createdat" && pg.direction == descending {
-			// createdat & descending
-			addToSortedSet = true
-
-			// if zcard >= itemPerPage && zcard mod itemPerPage != 0 then :
-
 			if totalItem.Val() >= pg.itemPerPage && totalItem.Val()%pg.itemPerPage != 0 {
 				deleteSettledKey := pg.redisClient.Del(context.TODO(), key+pg.settledKeyTrailing)
 				if deleteSettledKey.Err() != nil {
@@ -201,8 +196,7 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 				}
 			}
 
-			// end if
-
+			addToSortedSet = true
 			score = float64(item.GetCreatedAt().UnixMilli())
 		} else {
 			value := reflect.ValueOf(&item).Elem().Field(pg.index).Interface()
@@ -428,6 +422,8 @@ func (pg *PaginationType[T]) RemoveItem(pagKeyParams []string, item T) *types.Pa
 
 	// if attribute is not createdat then re-set the highest & lowest key
 	if pg.attribute == "createdat" {
+
+		// teori sederhananya bahwa untuk descending simply hapus settled key
 
 	} else {
 		var score float64
