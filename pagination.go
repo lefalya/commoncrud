@@ -87,9 +87,7 @@ func Pagination[T interfaces.Item](
 			pagination.cardinalityKeyTrailing = pagination.sortedSetKeyTrailing + ":cardinality"
 		} else {
 			pagination.sortedSetKeyTrailing = descendingTrailing + "createdat" + formattedSuffix
-			pagination.settledKeyTrailing = pagination.sortedSetKeyTrailing + ":settled"
 		}
-
 	} else {
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
@@ -103,25 +101,17 @@ func Pagination[T interfaces.Item](
 					pagination.sortedSetKeyTrailing = descendingTrailing + pagination.attribute + formattedSuffix
 					pagination.lowestScoreKeyTrailing = pagination.sortedSetKeyTrailing + ":lowestscore"
 				}
-
 				break
 			}
 		}
 	}
 
+	pagination.settledKeyTrailing = pagination.sortedSetKeyTrailing + ":settled"
+
 	return pagination
 }
 
 func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *types.PaginationError {
-	errorSet := pg.itemCache.Set(item)
-	if errorSet != nil {
-		return &types.PaginationError{
-			Err:     errorSet.Err,
-			Details: errorSet.Details,
-			Message: "Failed to set item to Redis",
-		}
-	}
-
 	key := concatKey(pg.paginationRedisFormat, paginationParameters)
 
 	totalItem := pg.redisClient.ZCard(
@@ -168,10 +158,8 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 				score = float64(item.GetCreatedAt().UnixMilli())
 			}
 		} else if pg.attribute == "createdat" && pg.direction == descending {
-			// createdat & descending
 			addToSortedSet = true
-
-			// if zcard >= itemPerPage && zcard mod itemPerPage != 0 then :
+			score = float64(item.GetCreatedAt().UnixMilli())
 
 			if totalItem.Val() >= pg.itemPerPage && totalItem.Val()%pg.itemPerPage != 0 {
 				deleteSettledKey := pg.redisClient.Del(context.TODO(), key+pg.settledKeyTrailing)
@@ -184,10 +172,6 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 					}
 				}
 			}
-
-			// end if
-
-			score = float64(item.GetCreatedAt().UnixMilli())
 		} else {
 			value := reflect.ValueOf(&item).Elem().Field(pg.index).Interface()
 			if value != nil {
@@ -246,9 +230,31 @@ func (pg *PaginationType[T]) AddItem(item T, paginationParameters ...string) *ty
 			} else if pg.direction == descending && score >= thresholdScore {
 				addToSortedSet = true
 			}
+
+			// will return 1 or 0 depends on settledKey existence.
+			if totalItem.Val() >= pg.itemPerPage && totalItem.Val()%pg.itemPerPage != 0 {
+				deleteSettledKey := pg.redisClient.Del(context.TODO(), key+pg.settledKeyTrailing)
+				if deleteSettledKey.Err() != nil {
+					// TODO: remove sorted set
+					return &types.PaginationError{
+						Err:     REDIS_FATAL_ERROR,
+						Details: deleteSettledKey.Err().Error(),
+						Message: "Failed to delete settled key on Redis",
+					}
+				}
+			}
 		}
 
 		if addToSortedSet {
+			errorSet := pg.itemCache.Set(item)
+			if errorSet != nil {
+				return &types.PaginationError{
+					Err:     errorSet.Err,
+					Details: errorSet.Details,
+					Message: "Failed to set item to Redis",
+				}
+			}
+
 			sortedSetMember := redis.Z{
 				Score:  score,
 				Member: item.GetRandId(),

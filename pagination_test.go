@@ -81,6 +81,7 @@ func TestInitPagiantion(t *testing.T) {
 		assert.Equal(t, descending, pagination.direction)
 		assert.Equal(t, "createdat", pagination.attribute)
 		assert.Equal(t, descendingTrailing+"createdat", pagination.sortedSetKeyTrailing)
+		assert.Equal(t, descendingTrailing+"createdat:settled", pagination.settledKeyTrailing)
 		assert.Equal(t, "car:brands:%s:category:%s", pagination.paginationRedisFormat)
 	})
 
@@ -139,6 +140,7 @@ func TestInitPagiantion(t *testing.T) {
 		assert.Equal(t, "ranking", pagination.attribute)
 		assert.Equal(t, descendingTrailing+"ranking:descendingrank", pagination.sortedSetKeyTrailing)
 		assert.Equal(t, descendingTrailing+"ranking:descendingrank:lowestscore", pagination.lowestScoreKeyTrailing)
+		assert.Equal(t, descendingTrailing+"ranking:descendingrank:settled", pagination.settledKeyTrailing)
 		assert.Equal(t, "car:brands:%s:category:%s", pagination.paginationRedisFormat)
 		assert.Equal(t, "", pagination.highestScoreKeyTrailing)
 	})
@@ -158,6 +160,7 @@ func TestInitPagiantion(t *testing.T) {
 		assert.Equal(t, "ranking", pagination.attribute)
 		assert.Equal(t, ascendingTrailing+"ranking:lowesttohighest", pagination.sortedSetKeyTrailing)
 		assert.Equal(t, ascendingTrailing+"ranking:lowesttohighest:highestscore", pagination.highestScoreKeyTrailing)
+		assert.Equal(t, ascendingTrailing+"ranking:lowesttohighest:settled", pagination.settledKeyTrailing)
 		assert.Equal(t, "car:brands:%s:category:%s", pagination.paginationRedisFormat)
 		assert.Equal(t, "", pagination.lowestScoreKeyTrailing)
 	})
